@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Fotoportfolio</title>
+  <link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+
+<!-- Login -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <h1>Admin Panel</h1>
+    <p>Log in om je portfolio te beheren</p>
+    <p class="login-error" id="login-error"></p>
+    <form id="login-form">
+      <div class="form-group">
+        <label for="password">Wachtwoord</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Inloggen</button>
+    </form>
+  </div>
+</div>
+
+<!-- App -->
+<div class="app" id="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      Admin Panel
+      <small>Fotoportfolio</small>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-page="dashboard">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" data-page="photos">
+        <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+        Foto's
+      </button>
+      <button class="nav-item" data-page="categories">
+        <svg viewBox="0 0 24 24"><path d="M12 2l-5.5 9h11z"/><circle cx="17.5" cy="17.5" r="4.5"/><rect x="2" y="13" width="8" height="8"/></svg>
+        Categorieën
+      </button>
+      <button class="nav-item" data-page="settings">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        Instellingen
+      </button>
+      <button class="nav-item" data-page="private">
+        <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+        Privé Galerijen
+      </button>
+      <button class="nav-item" data-page="messages">
+        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        Berichten
+        <span class="nav-badge" id="msg-badge" style="display:none">0</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="logout-btn" id="logout-btn">
+        <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        Uitloggen
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h2 id="page-title">Dashboard</h2>
+      <a href="/" target="_blank" class="btn btn-outline btn-sm">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+        Website bekijken
+      </a>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="page-content active" id="page-dashboard">
+      <div class="stats" id="stats"></div>
+      <div class="card">
+        <h3 style="font-size:.9rem;font-weight:600;margin-bottom:1rem">Snelle upload</h3>
+        <p style="color:#666;font-size:.85rem;margin-bottom:1rem">Selecteer eerst een categorie, dan kan je foto's slepen of selecteren.</p>
+        <div class="form-group" style="max-width:300px">
+          <label>Categorie</label>
+          <select id="quick-cat-select"></select>
+        </div>
+        <div class="upload-zone" id="quick-upload-zone">
+          <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+          <p><strong>Klik of sleep foto's hier</strong><br>JPG, PNG, WebP — max 50MB per foto</p>
+        </div>
+        <input type="file" id="quick-file-input" multiple accept="image/*" style="display:none">
+        <div class="upload-progress" id="upload-progress"></div>
+      </div>
+    </div>
+
+    <!-- Photos -->
+    <div class="page-content" id="page-photos">
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
+        <select id="photos-cat-filter" style="padding:.5rem .8rem;border:1px solid var(--border);border-radius:var(--radius);font-size:.88rem"></select>
+        <button class="btn btn-primary" id="photos-upload-btn">
+          <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+          Foto's uploaden
+        </button>
+        <input type="file" id="photos-file-input" multiple accept="image/*" style="display:none">
+      </div>
+      <div class="photo-grid" id="photos-grid">
+        <p style="color:var(--gray);padding:2rem;grid-column:1/-1">Selecteer een categorie om foto's te zien.</p>
+      </div>
+    </div>
+
+    <!-- Categories -->
+    <div class="page-content" id="page-categories">
+      <div style="margin-bottom:1.5rem">
+        <button class="btn btn-primary" id="new-cat-btn">
+          <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          Nieuwe categorie
+        </button>
+      </div>
+      <div class="cat-list" id="cat-list"></div>
+    </div>
+
+    <!-- Settings -->
+    <div class="page-content" id="page-settings">
+      <form id="settings-form">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+          <div class="card">
+            <h3 style="font-size:.9rem;font-weight:600;margin-bottom:1.2rem">Algemeen</h3>
+            <div class="form-group">
+              <label>Naam website / fotograaf</label>
+              <input type="text" name="site_name">
+            </div>
+            <div class="form-group">
+              <label>Hero titel</label>
+              <input type="text" name="hero_title">
+            </div>
+            <div class="form-group">
+              <label>Hero subtitel</label>
+              <input type="text" name="hero_subtitle">
+            </div>
+          </div>
+          <div class="card">
+            <h3 style="font-size:.9rem;font-weight:600;margin-bottom:1.2rem">Sociale media</h3>
+            <div class="form-group">
+              <label>Instagram URL</label>
+              <input type="url" name="instagram_url" placeholder="https://instagram.com/...">
+            </div>
+            <div class="form-group">
+              <label>Facebook URL</label>
+              <input type="url" name="facebook_url" placeholder="https://facebook.com/...">
+            </div>
+          </div>
+          <div class="card" style="grid-column:1/-1">
+            <h3 style="font-size:.9rem;font-weight:600;margin-bottom:1.2rem">Over mij pagina</h3>
+            <div class="form-group">
+              <label>Titel</label>
+              <input type="text" name="about_title">
+            </div>
+            <div class="form-group">
+              <label>Tekst (gebruik lege regels voor paragrafen)</label>
+              <textarea name="about_text" style="min-height:160px"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Quote (verschijnt cursief onder de tekst)</label>
+              <input type="text" name="about_quote" placeholder="Een foto zegt meer dan 1000 woorden">
+            </div>
+          </div>
+          <div class="card">
+            <h3 style="font-size:.9rem;font-weight:600;margin-bottom:1.2rem">Contactgegevens</h3>
+            <div class="form-group">
+              <label>E-mailadres</label>
+              <input type="email" name="contact_email">
+            </div>
+            <div class="form-group">
+              <label>Telefoonnummer</label>
+              <input type="tel" name="contact_phone">
+            </div>
+            <div class="form-group">
+              <label>Locatie</label>
+              <input type="text" name="contact_location">
+            </div>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;justify-content:flex-end">
+            <h3 style="font-size:.9rem;font-weight:600;margin-bottom:1.2rem">Profielfoto</h3>
+            <p style="color:var(--gray);font-size:.82rem;margin-bottom:1rem">Upload een profielfoto voor de "Over mij" pagina. Sla op als <code>profile.jpg</code> in de uploads map, of upload hier:</p>
+            <div class="upload-zone" id="profile-upload-zone" style="padding:1.5rem">
+              <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+              <p style="font-size:.82rem"><strong>Klik om profielfoto te uploaden</strong></p>
+            </div>
+            <input type="file" id="profile-input" accept="image/*" style="display:none">
+          </div>
+        </div>
+        <div style="margin-top:1.5rem">
+          <button type="submit" class="btn btn-primary">Instellingen opslaan</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Private galleries -->
+    <div class="page-content" id="page-private">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+        <p style="color:var(--gray);font-size:.85rem;max-width:520px">
+          Maak een privé galerij aan voor elke klant. Geef hen de toegangscode en de link <strong>/prive</strong> — zij kunnen dan hun eigen foto's bekijken en downloaden.
+        </p>
+        <button class="btn btn-primary" id="new-private-btn">
+          <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          Nieuwe privé galerij
+        </button>
+      </div>
+      <div id="private-list"></div>
+    </div>
+
+    <!-- Messages -->
+    <div class="page-content" id="page-messages">
+      <div class="message-list" id="message-list">
+        <p style="color:var(--gray);padding:2rem;text-align:center">Geen berichten.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Category Modal -->
+<div class="modal-overlay" id="cat-modal">
+  <div class="modal">
+    <h3 id="cat-modal-title">Categorie toevoegen</h3>
+    <form id="cat-form">
+      <input type="hidden" name="id">
+      <div class="form-group">
+        <label>Naam</label>
+        <input type="text" name="name" required>
+      </div>
+      <div class="form-group">
+        <label>Beschrijving</label>
+        <textarea name="description" style="min-height:80px"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Volgorde</label>
+        <input type="number" name="sort_order" value="0">
+      </div>
+      <div class="form-group">
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" name="visible" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:.88rem">Zichtbaar op website</span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="cat-modal-cancel">Annuleren</button>
+        <button type="submit" class="btn btn-primary">Opslaan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Private gallery modal -->
+<div class="modal-overlay" id="private-modal">
+  <div class="modal">
+    <h3 id="private-modal-title">Privé galerij aanmaken</h3>
+    <form id="private-form">
+      <input type="hidden" name="id">
+      <div class="form-group">
+        <label>Naam klant / evenement *</label>
+        <input type="text" name="name" placeholder="bv. Huwelijk Jan & Marie" required>
+      </div>
+      <div class="form-group">
+        <label>Beschrijving</label>
+        <input type="text" name="description" placeholder="bv. Receptie en dansfeest">
+      </div>
+      <div class="form-group">
+        <label>Datum evenement</label>
+        <input type="date" name="event_date">
+      </div>
+      <div class="form-group">
+        <label id="password-label">Toegangscode *</label>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" name="password" id="private-password" autocomplete="off" style="flex:1;font-family:monospace;letter-spacing:.05em" required>
+          <button type="button" id="generate-password" class="btn btn-outline btn-sm" title="Genereer willekeurige code">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          </button>
+        </div>
+        <small id="password-hint" style="color:var(--gray);font-size:.75rem;margin-top:.3rem">Deel deze code met de klant. Je kan hem altijd opnieuw opzoeken in het overzicht.</small>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="private-modal-cancel">Annuleren</button>
+        <button type="submit" class="btn btn-primary">Opslaan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="/admin/js/admin.js"></script>
+</body>
+</html>

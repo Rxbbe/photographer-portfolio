@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="contact">
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="site-logo" id="site-logo">Arnoud Bex</a>
+      <div class="social-links"></div>
+      <nav class="site-nav" id="site-nav"></nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <div class="contact-page-header">
+      <h1>Contactblad</h1>
+    </div>
+
+    <section class="contact-section">
+      <div class="contact-info">
+        <h2>Neem Contact Op</h2>
+        <p>Heb je een vraag of wil je een fotoshoot boeken? Stuur me een bericht en ik neem zo snel mogelijk contact op.</p>
+
+        <div class="contact-detail" id="contact-email-wrap" style="display:none">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          <a id="contact-email" href="mailto:"><span>contact@fotograaf.be</span></a>
+        </div>
+
+        <div class="contact-detail" id="contact-phone-wrap" style="display:none">
+          <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+          <a id="contact-phone" href="tel:"><span></span></a>
+        </div>
+
+        <div class="contact-detail">
+          <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          <span id="contact-location">België</span>
+        </div>
+      </div>
+
+      <div>
+        <form class="contact-form" id="contact-form" novalidate>
+          <div class="form-group">
+            <label for="name">Naam *</label>
+            <input type="text" id="name" name="name" required autocomplete="name">
+          </div>
+          <div class="form-group">
+            <label for="email">E-mailadres *</label>
+            <input type="email" id="email" name="email" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="phone">Telefoonnummer</label>
+            <input type="tel" id="phone" name="phone" autocomplete="tel">
+          </div>
+          <div class="form-group">
+            <label for="message">Bericht *</label>
+            <textarea id="message" name="message" required placeholder="Vertel me over jouw wens..."></textarea>
+          </div>
+          <div id="form-message" class="form-message" style="display:none"></div>
+          <button type="submit" class="btn">Versturen</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-social"></div>
+    <p class="footer-copy">&copy; <span id="footer-year"></span></p>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
+    // Show form-message div when it has content
+    const msgEl = document.getElementById('form-message');
+    const observer = new MutationObserver(() => {
+      msgEl.style.display = msgEl.textContent ? '' : 'none';
+    });
+    observer.observe(msgEl, { childList: true, subtree: true, characterData: true });
+  </script>
+</body>
+</html>

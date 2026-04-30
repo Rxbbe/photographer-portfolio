@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privé Galerij</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* ── Login wall ────────────────────────────────────────────────────── */
+    .prive-login {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0a;
+      padding: 2rem;
+    }
+    .prive-login-card {
+      background: #fff;
+      padding: 3rem 2.5rem;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+    .prive-login-logo {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #0a0a0a;
+      margin-bottom: 2rem;
+      display: block;
+    }
+    .prive-lock-icon {
+      width: 48px;
+      height: 48px;
+      fill: #0a0a0a;
+      margin: 0 auto 1.2rem;
+    }
+    .prive-login-card h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.6rem;
+      margin-bottom: 0.5rem;
+    }
+    .prive-login-card p {
+      color: #777;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    .prive-login-card input[type="password"] {
+      width: 100%;
+      border: 1px solid #e5e5e5;
+      padding: 0.85rem 1rem;
+      font-size: 1rem;
+      font-family: var(--sans);
+      outline: none;
+      text-align: center;
+      letter-spacing: 0.15em;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+    .prive-login-card input[type="password"]:focus { border-color: #0a0a0a; }
+    .prive-login-error {
+      color: #dc2626;
+      font-size: 0.85rem;
+      min-height: 1.3em;
+      margin-bottom: 0.5rem;
+    }
+    .prive-login-btn {
+      width: 100%;
+      padding: 0.9rem;
+      background: #0a0a0a;
+      color: #fff;
+      font-size: 0.8rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      font-family: var(--sans);
+    }
+    .prive-login-btn:hover { opacity: 0.85; }
+    .prive-login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .prive-back {
+      margin-top: 1.5rem;
+      display: inline-block;
+      color: rgba(255,255,255,0.4);
+      font-size: 0.8rem;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .prive-back:hover { color: rgba(255,255,255,0.8); }
+
+    /* ── Gallery view ──────────────────────────────────────────────────── */
+    .prive-gallery { display: none; }
+    .prive-gallery.visible { display: block; }
+
+    .prive-header {
+      background: #f7f7f7;
+      padding: 6rem 2rem 3rem;
+      text-align: center;
+    }
+    .prive-header-eyebrow {
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #777;
+      margin-bottom: 0.8rem;
+    }
+    .prive-header h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+    }
+    .prive-header p {
+      color: #777;
+      margin-top: 0.6rem;
+    }
+    .prive-event-date {
+      display: inline-block;
+      margin-top: 0.8rem;
+      font-size: 0.82rem;
+      color: #888;
+      letter-spacing: 0.06em;
+    }
+    .prive-meta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.2rem 2rem;
+      border-bottom: 1px solid #e8e8e8;
+      font-size: 0.82rem;
+      color: #888;
+    }
+    .prive-logout-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #777;
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+      font-family: var(--sans);
+    }
+    .prive-logout-btn:hover { color: #0a0a0a; }
+    .prive-logout-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+    .prive-empty {
+      text-align: center;
+      padding: 6rem 2rem;
+      color: #888;
+    }
+
+    /* Download button in lightbox */
+    .lb-download {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: var(--sans);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      text-decoration: none;
+    }
+    .lb-download:hover { background: rgba(255,255,255,0.25); }
+    .lb-download svg { width: 14px; height: 14px; fill: currentColor; }
+  </style>
+</head>
+<body>
+
+  <!-- Login wall -->
+  <div class="prive-login" id="prive-login">
+    <div class="prive-login-card">
+      <a href="/" class="prive-login-logo" id="prive-site-name">Fotograaf</a>
+
+      <svg class="prive-lock-icon" viewBox="0 0 24 24">
+        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+      </svg>
+
+      <h1>Privé Galerij</h1>
+      <p>Voer je toegangscode in om<br>je foto's te bekijken.</p>
+
+      <form id="prive-login-form">
+        <p class="prive-login-error" id="prive-error"></p>
+        <input type="password" id="prive-password" placeholder="Toegangscode" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <button type="submit" class="prive-login-btn" id="prive-submit">Bekijken</button>
+      </form>
+    </div>
+    <a href="/" class="prive-back">← Terug naar website</a>
+  </div>
+
+  <!-- Gallery (shown after login) -->
+  <div class="prive-gallery" id="prive-gallery">
+
+    <header class="site-header">
+      <div class="header-inner">
+        <a href="/" class="site-logo" id="gallery-site-name">Fotograaf</a>
+        <nav class="site-nav" id="site-nav"></nav>
+        <button class="hamburger" id="hamburger" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="prive-header">
+        <p class="prive-header-eyebrow">Privé Galerij</p>
+        <h1 id="gallery-name">Jouw evenement</h1>
+        <p id="gallery-desc"></p>
+        <span id="gallery-date" class="prive-event-date"></span>
+      </div>
+
+      <div class="prive-meta-bar">
+        <span id="gallery-count"></span>
+        <button class="prive-logout-btn" id="prive-logout">
+          <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          Uitloggen
+        </button>
+      </div>
+
+      <div class="gallery-grid" id="prive-grid"></div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-social"></div>
+      <p class="footer-copy">&copy; <span id="footer-year"></span></p>
+    </footer>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <button class="lightbox-close" id="lb-close" aria-label="Sluiten">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+    <span class="lightbox-counter" id="lb-counter"></span>
+    <div class="lightbox-img-wrap">
+      <img id="lb-img" src="" alt="">
+    </div>
+    <button class="lightbox-btn lightbox-prev" id="lb-prev" aria-label="Vorige">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
+    <button class="lightbox-btn lightbox-next" id="lb-next" aria-label="Volgende">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+    </button>
+    <a class="lb-download" id="lb-download" href="#" download target="_blank">
+      <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      Downloaden
+    </a>
+  </div>
+
+  <script>
+    const TOKEN_KEY = 'prive_token';
+    const GALLERY_KEY = 'prive_gallery';
+
+    let photos = [];
+    let lbIndex = 0;
+    let touchStartX = 0;
+
+    // ── Boot ────────────────────────────────────────────────────────────────
+    async function boot() {
+      const settings = await fetch('/api/settings').then(r => r.json()).catch(() => ({}));
+      const siteName = settings.site_name || 'Fotograaf';
+      document.title = `Privé Galerij — ${siteName}`;
+      document.getElementById('prive-site-name').textContent = siteName;
+      document.getElementById('gallery-site-name').textContent = siteName;
+
+      // Social footer
+      const footerSocial = document.querySelector('.footer-social');
+      if (footerSocial) {
+        if (settings.instagram_url) {
+          footerSocial.innerHTML += `<a href="${settings.instagram_url}" target="_blank" rel="noopener" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </a>`;
+        }
+      }
+
+      document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+      // Check stored session
+      const stored = localStorage.getItem(TOKEN_KEY);
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          await loadGallery(data.token, data.gallery);
+          return;
+        } catch {
+          localStorage.removeItem(TOKEN_KEY);
+        }
+      }
+
+      document.getElementById('prive-login').style.display = 'flex';
+    }
+
+    // ── Login form ──────────────────────────────────────────────────────────
+    document.getElementById('prive-login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const password = document.getElementById('prive-password').value;
+      const errorEl = document.getElementById('prive-error');
+      const btn = document.getElementById('prive-submit');
+
+      errorEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Laden...';
+
+      try {
+        const res = await fetch('/api/private/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Ongeldig wachtwoord.';
+          btn.disabled = false;
+          btn.textContent = 'Bekijken';
+          return;
+        }
+
+        localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: data.token, gallery: data.gallery }));
+        document.getElementById('prive-login').style.display = 'none';
+        await loadGallery(data.token, data.gallery);
+
+      } catch {
+        errorEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
+        btn.disabled = false;
+        btn.textContent = 'Bekijken';
+      }
+    });
+
+    // ── Load gallery ────────────────────────────────────────────────────────
+    async function loadGallery(token, gallery) {
+      const res = await fetch('/api/private/photos', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        localStorage.removeItem(TOKEN_KEY);
+        document.getElementById('prive-login').style.display = 'flex';
+        document.getElementById('prive-error').textContent = 'Sessie verlopen. Log opnieuw in.';
+        return;
+      }
+
+      const data = await res.json();
+      photos = data.photos;
+      gallery = data.gallery;
+
+      // Fill in gallery header
+      document.getElementById('gallery-name').textContent = gallery.name;
+      document.getElementById('gallery-desc').textContent = gallery.description || '';
+      document.title = `${gallery.name} — Privé Galerij`;
+
+      if (gallery.event_date) {
+        const d = new Date(gallery.event_date);
+        document.getElementById('gallery-date').textContent =
+          d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+
+      const count = photos.length;
+      document.getElementById('gallery-count').textContent =
+        `${count} foto${count !== 1 ? "'s" : ''}`;
+
+      // Render grid
+      const grid = document.getElementById('prive-grid');
+      if (!photos.length) {
+        grid.innerHTML = '<div class="prive-empty">Er zijn nog geen foto\'s toegevoegd aan jouw galerij.</div>';
+      } else {
+        grid.innerHTML = photos.map((p, i) => `
+          <div class="gallery-item" data-index="${i}">
+            <img src="/uploads/${p.filename}" alt="" loading="lazy">
+            <div class="gallery-item-overlay">
+              <svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:white"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            </div>
+          </div>
+        `).join('');
+
+        grid.querySelectorAll('.gallery-item').forEach(item => {
+          item.addEventListener('click', () => openLightbox(+item.dataset.index));
+        });
+      }
+
+      // Build nav
+      buildNav(token);
+
+      // Show gallery
+      document.getElementById('prive-gallery').classList.add('visible');
+      window.scrollTo(0, 0);
+
+      // Logout button
+      document.getElementById('prive-logout').addEventListener('click', () => {
+        localStorage.removeItem(TOKEN_KEY);
+        window.location.reload();
+      });
+
+      initLightbox();
+    }
+
+    // ── Nav ─────────────────────────────────────────────────────────────────
+    async function buildNav(token) {
+      const nav = document.getElementById('site-nav');
+      const cats = await fetch('/api/categories').then(r => r.json()).catch(() => []);
+
+      let links = `<a href="/">Home</a><a href="/about.html">Over mij</a>`;
+      cats.forEach(c => {
+        links += `<a href="/gallery.html?slug=${c.slug}">${c.name}</a>`;
+      });
+      links += `<a href="/contact.html">Contact</a>`;
+      links += `<a href="/prive" class="active">Privé galerij</a>`;
+      nav.innerHTML = links;
+
+      document.getElementById('hamburger').addEventListener('click', () => {
+        document.getElementById('hamburger').classList.toggle('open');
+        nav.classList.toggle('open');
+      });
+
+      window.addEventListener('scroll', () => {
+        document.querySelector('.site-header')?.classList.toggle('scrolled', window.scrollY > 20);
+      });
+    }
+
+    // ── Lightbox ─────────────────────────────────────────────────────────────
+    function openLightbox(index) {
+      lbIndex = index;
+      renderLightbox();
+      document.getElementById('lightbox').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function moveLightbox(dir) {
+      lbIndex = (lbIndex + dir + photos.length) % photos.length;
+      renderLightbox();
+    }
+
+    function renderLightbox() {
+      const p = photos[lbIndex];
+      const img = document.getElementById('lb-img');
+      img.src = `/uploads/${p.filename}`;
+      img.alt = '';
+      document.getElementById('lb-counter').textContent = `${lbIndex + 1} / ${photos.length}`;
+      document.getElementById('lb-download').href = `/uploads/${p.filename}`;
+      document.getElementById('lb-download').download = p.filename;
+      img.style.animation = 'none'; img.offsetHeight; img.style.animation = '';
+    }
+
+    function initLightbox() {
+      document.getElementById('lb-close').addEventListener('click', closeLightbox);
+      document.getElementById('lb-prev').addEventListener('click', () => moveLightbox(-1));
+      document.getElementById('lb-next').addEventListener('click', () => moveLightbox(1));
+      document.getElementById('lightbox').addEventListener('click', e => {
+        if (e.target === document.getElementById('lightbox')) closeLightbox();
+      });
+      document.addEventListener('keydown', e => {
+        if (!document.getElementById('lightbox').classList.contains('open')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') moveLightbox(-1);
+        if (e.key === 'ArrowRight') moveLightbox(1);
+      });
+      const lb = document.getElementById('lightbox');
+      lb.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+      lb.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 50) moveLightbox(dx < 0 ? 1 : -1);
+      });
+    }
+
+    boot();
+  </script>
+</body>
+</html>

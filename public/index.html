@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arnoud Bex - Fotograaf</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="home">
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="site-logo" id="site-logo">Arnoud Bex</a>
+      <div class="social-links"></div>
+      <nav class="site-nav" id="site-nav"></nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <section class="hero">
+      <h1 id="hero-title">Arnoud Bex</h1>
+      <p id="hero-subtitle"></p>
+      <div class="hero-divider"></div>
+    </section>
+
+    <section class="categories-section">
+      <p class="section-label">Portfolio</p>
+      <div class="categories-grid" id="categories-grid">
+        <div class="skeleton" style="grid-column:1/3;aspect-ratio:4/3"></div>
+        <div class="skeleton" style="aspect-ratio:4/5"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-social"></div>
+    <p class="footer-copy" id="footer-name">Arnoud Bex &copy; <span id="footer-year"></span></p>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

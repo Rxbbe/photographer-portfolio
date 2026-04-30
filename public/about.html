@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Over mij</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="about">
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="/" class="site-logo" id="site-logo">Arnoud Bex</a>
+      <div class="social-links"></div>
+      <nav class="site-nav" id="site-nav"></nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <div class="about-page-header">
+      <h1 id="about-title">Over Mij</h1>
+    </div>
+
+    <section class="about-section">
+      <div class="about-content">
+        <p class="about-text" id="about-text"></p>
+        <blockquote class="about-quote" id="about-quote"></blockquote>
+      </div>
+      <div class="about-image">
+        <img src="/uploads/profile.jpg" alt="Profielfoto"
+          onerror="this.parentElement.style.display='none'">
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-social"></div>
+    <p class="footer-copy">&copy; <span id="footer-year"></span></p>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+</body>
+</html>
