@@ -142,7 +142,7 @@ async function initGallery() {
 
   grid.innerHTML = photos.map((p, i) => `
     <div class="gallery-item" data-index="${i}">
-      <img src="/uploads/${p.filename}" alt="${p.title || ''}" loading="lazy">
+      <img src="${p.url}" alt="${p.title || ''}" loading="lazy">
       <div class="gallery-item-overlay">
         <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
       </div>
@@ -205,7 +205,7 @@ function renderLightbox() {
   const caption = document.getElementById('lb-caption');
   const counter = document.getElementById('lb-counter');
 
-  img.src = `/uploads/${photo.filename}`;
+  img.src = photo.url;
   img.alt = photo.title || '';
   if (caption) caption.textContent = photo.title || '';
   if (counter) counter.textContent = `${lightboxIndex + 1} / ${galleryPhotos.length}`;

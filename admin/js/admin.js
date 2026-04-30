@@ -236,7 +236,7 @@ async function refreshPhotosPage() {
 
   grid.innerHTML = photos.map(p => `
     <div class="photo-thumb" data-id="${p.id}">
-      <img src="/uploads/${p.filename}" alt="${p.title || ''}">
+      <img src="${p.url || '/uploads/' + p.filename}" alt="${p.title || ''}">
       ${cat?.cover_photo_id === p.id ? '<span class="photo-cover-badge">Cover</span>' : ''}
       <div class="photo-thumb-actions">
         <button class="btn-cover" data-id="${p.id}">Als cover</button>
