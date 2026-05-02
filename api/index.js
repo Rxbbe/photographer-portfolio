@@ -65,8 +65,10 @@ async function initDB() {
     id SERIAL PRIMARY KEY, name TEXT NOT NULL, slug TEXT UNIQUE NOT NULL,
     description TEXT DEFAULT '', cover_photo_id INTEGER,
     sort_order INTEGER DEFAULT 0, visible INTEGER DEFAULT 1,
-    created_at TIMESTAMP DEFAULT NOW()
+    parent_id INTEGER, created_at TIMESTAMP DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER`;
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS event_date TEXT DEFAULT ''`;
 
   await sql`CREATE TABLE IF NOT EXISTS photos (
     id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id),
@@ -165,7 +167,7 @@ app.get('/api/categories', async (req, res) => {
         (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) AS photo_count
       FROM categories c
       LEFT JOIN photos cp ON c.cover_photo_id = cp.id
-      WHERE c.visible = 1
+      WHERE c.visible = 1 AND c.parent_id IS NULL
       ORDER BY c.sort_order, c.name`;
     res.json(cats);
   } catch (e) { console.error(e); res.status(500).json({ error: 'DB fout' }); }
@@ -173,9 +175,29 @@ app.get('/api/categories', async (req, res) => {
 
 app.get('/api/categories/:slug', async (req, res) => {
   try {
-    const [cat] = await sql`SELECT * FROM categories WHERE slug = ${req.params.slug} AND visible = 1`;
+    const [cat] = await sql`
+      SELECT c.*, pc.slug AS parent_slug, pc.name AS parent_name
+      FROM categories c
+      LEFT JOIN categories pc ON c.parent_id = pc.id
+      WHERE c.slug = ${req.params.slug} AND c.visible = 1`;
     if (!cat) return res.status(404).json({ error: 'Niet gevonden' });
     res.json(cat);
+  } catch (e) { res.status(500).json({ error: 'DB fout' }); }
+});
+
+app.get('/api/categories/:slug/subcategories', async (req, res) => {
+  try {
+    const [cat] = await sql`SELECT id FROM categories WHERE slug = ${req.params.slug}`;
+    if (!cat) return res.status(404).json({ error: 'Niet gevonden' });
+    const subcats = await sql`
+      SELECT c.*,
+        COALESCE(cp.url, (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1)) AS cover_url,
+        (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) AS photo_count
+      FROM categories c
+      LEFT JOIN photos cp ON c.cover_photo_id = cp.id
+      WHERE c.parent_id = ${cat.id} AND c.visible = 1
+      ORDER BY c.sort_order, c.name`;
+    res.json(subcats);
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
@@ -215,15 +237,28 @@ app.post('/api/admin/login', (req, res) => {
 // ─── Admin: categories ─────────────────────────────────────────────────────────
 app.get('/api/admin/categories', auth, async (req, res) => {
   try {
-    res.json(await sql`
-      SELECT c.*, COUNT(p.id)::int AS photo_count
-      FROM categories c LEFT JOIN photos p ON p.category_id = c.id
-      GROUP BY c.id ORDER BY c.sort_order, c.name`);
+    const { parent_id } = req.query;
+    if (parent_id !== undefined) {
+      res.json(await sql`
+        SELECT c.*,
+          COALESCE(cp.url, (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1)) AS cover_url,
+          COUNT(p.id)::int AS photo_count
+        FROM categories c
+        LEFT JOIN photos cp ON c.cover_photo_id = cp.id
+        LEFT JOIN photos p ON p.category_id = c.id
+        WHERE c.parent_id = ${parent_id}
+        GROUP BY c.id, cp.url ORDER BY c.sort_order, c.name`);
+    } else {
+      res.json(await sql`
+        SELECT c.*, COUNT(p.id)::int AS photo_count
+        FROM categories c LEFT JOIN photos p ON p.category_id = c.id
+        GROUP BY c.id ORDER BY c.sort_order, c.name`);
+    }
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
 app.post('/api/admin/categories', auth, async (req, res) => {
-  const { name, description, visible } = req.body;
+  const { name, description, visible, parent_id, event_date } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Naam vereist' });
   const slug = name.toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -231,8 +266,8 @@ app.post('/api/admin/categories', auth, async (req, res) => {
   try {
     const [{ count }] = await sql`SELECT COUNT(*)::int as count FROM categories`;
     const [row] = await sql`
-      INSERT INTO categories (name,slug,description,sort_order,visible)
-      VALUES (${name.trim()},${slug},${description||''},${count+1},${visible!==false?1:0})
+      INSERT INTO categories (name,slug,description,sort_order,visible,parent_id,event_date)
+      VALUES (${name.trim()},${slug},${description||''},${count+1},${visible!==false?1:0},${parent_id||null},${event_date||''})
       RETURNING id, slug`;
     res.json({ id: row.id, name: name.trim(), slug: row.slug });
   } catch (e) {
@@ -241,9 +276,9 @@ app.post('/api/admin/categories', auth, async (req, res) => {
 });
 
 app.put('/api/admin/categories/:id', auth, async (req, res) => {
-  const { name, description, sort_order, visible } = req.body;
+  const { name, description, sort_order, visible, parent_id, event_date } = req.body;
   try {
-    await sql`UPDATE categories SET name=${name}, description=${description}, sort_order=${sort_order}, visible=${visible?1:0} WHERE id=${req.params.id}`;
+    await sql`UPDATE categories SET name=${name}, description=${description}, sort_order=${sort_order}, visible=${visible?1:0}, parent_id=${parent_id||null}, event_date=${event_date||''} WHERE id=${req.params.id}`;
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });

@@ -70,6 +70,7 @@ async function showApp() {
   initPhotosPage();
   initCategoriesPage();
   initSettingsPage();
+  initEventsPage();
   initPrivatePage();
   await loadMessages();
 }
@@ -85,11 +86,12 @@ function switchPage(page) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   document.querySelectorAll('.page-content').forEach(p => p.classList.toggle('active', p.id === `page-${page}`));
 
-  const titles = { dashboard: 'Dashboard', photos: "Foto's", categories: 'Categorieën', settings: 'Instellingen', private: 'Privé Galerijen', messages: 'Berichten' };
+  const titles = { dashboard: 'Dashboard', photos: "Foto's", categories: 'Categorieën', settings: 'Instellingen', events: 'Evenementen', private: 'Privé Galerijen', messages: 'Berichten' };
   document.getElementById('page-title').textContent = titles[page] || page;
 
   if (page === 'photos') refreshPhotosPage();
   if (page === 'categories') refreshCategories();
+  if (page === 'events') loadEvents();
   if (page === 'private') loadPrivateGalleries();
   if (page === 'messages') loadMessages();
 }
@@ -277,7 +279,8 @@ function initCategoriesPage() {
 async function refreshCategories() {
   const list = document.getElementById('cat-list');
   list.innerHTML = '<p style="color:var(--gray);padding:1rem">Laden...</p>';
-  const cats = await api('GET', '/api/admin/categories');
+  const allCats = await api('GET', '/api/admin/categories');
+  const cats = allCats?.filter(c => !c.parent_id);
 
   if (!cats?.length) {
     list.innerHTML = '<p style="color:var(--gray);padding:1rem">Nog geen categorieën.</p>';
@@ -450,6 +453,237 @@ async function loadMessages() {
       loadMessages();
     });
   });
+}
+
+// ── Evenementen ───────────────────────────────────────────────────────────────
+let evenementenCatId = null;
+
+function initEventsPage() {
+  document.getElementById('new-event-btn').addEventListener('click', () => openEventModal());
+  document.getElementById('event-modal-cancel').addEventListener('click', closeEventModal);
+  document.getElementById('event-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('event-modal')) closeEventModal();
+  });
+  document.getElementById('event-form').addEventListener('submit', saveEvent);
+}
+
+async function loadEvents() {
+  const list = document.getElementById('events-list');
+  list.innerHTML = '<p style="color:var(--gray);padding:1rem">Laden...</p>';
+
+  const allCats = await api('GET', '/api/admin/categories');
+  const parent = allCats?.find(c => c.slug === 'evenementen' && !c.parent_id);
+
+  if (!parent) {
+    list.innerHTML = '<p style="color:var(--gray);padding:1rem">Categorie "Evenementen" niet gevonden. Maak ze eerst aan via Categorieën.</p>';
+    return;
+  }
+
+  evenementenCatId = parent.id;
+  const events = await api('GET', `/api/admin/categories?parent_id=${parent.id}`);
+
+  if (!events?.length) {
+    list.innerHTML = `
+      <div style="text-align:center;padding:4rem 2rem;color:var(--gray)">
+        <svg viewBox="0 0 24 24" style="width:48px;height:48px;fill:#d4d4d8;margin:0 auto 1rem"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+        <p>Nog geen evenementen.<br>Maak er een aan via de knop hierboven.</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = events.map(ev => `
+    <div class="private-gallery-card" id="ev-card-${ev.id}">
+      <div class="private-gallery-header" data-id="${ev.id}">
+        <div class="private-gallery-icon" style="background:var(--light)">
+          ${ev.cover_url
+            ? `<img src="${ev.cover_url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" alt="">`
+            : `<svg viewBox="0 0 24 24" style="fill:var(--gray)"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>`}
+        </div>
+        <div class="private-gallery-info">
+          <div class="private-gallery-name">${escHtml(ev.name)}</div>
+          <div class="private-gallery-meta">
+            ${ev.event_date ? formatDateShort(ev.event_date) + ' · ' : ''}${ev.photo_count} foto${ev.photo_count !== 1 ? "'s" : ''}${ev.description ? ' · ' + escHtml(ev.description) : ''}
+          </div>
+        </div>
+        <div class="private-gallery-expand">
+          <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </div>
+      </div>
+      <div class="private-gallery-body">
+        <div class="private-gallery-actions">
+          <label class="btn btn-primary btn-sm" style="cursor:pointer">
+            <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+            Foto's uploaden
+            <input type="file" multiple accept="image/*" class="ev-upload-input" data-event="${ev.id}" style="display:none">
+          </label>
+          <button class="btn btn-outline btn-sm btn-edit-ev" data-id="${ev.id}">Bewerken</button>
+          <button class="btn btn-danger btn-sm btn-del-ev" data-id="${ev.id}">Verwijderen</button>
+        </div>
+        <div class="photo-grid pg-photo-grid" id="ev-grid-${ev.id}">
+          <p style="color:var(--gray);grid-column:1/-1;font-size:.85rem">Klik op de header om foto's te zien.</p>
+        </div>
+        <div class="upload-progress" id="ev-progress-${ev.id}"></div>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.private-gallery-header').forEach(header => {
+    header.addEventListener('click', e => {
+      if (e.target.closest('button, label')) return;
+      const card = header.closest('.private-gallery-card');
+      const wasOpen = card.classList.contains('open');
+      card.classList.toggle('open');
+      if (!wasOpen) loadEventPhotos(header.dataset.id);
+    });
+  });
+
+  list.querySelectorAll('.btn-edit-ev').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ev = events.find(e => e.id === +btn.dataset.id);
+      openEventModal(ev);
+    });
+  });
+
+  list.querySelectorAll('.btn-del-ev').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ev = events.find(e => e.id === +btn.dataset.id);
+      if (!confirm(`Evenement "${ev.name}" en alle bijbehorende foto's verwijderen?`)) return;
+      await api('DELETE', `/api/admin/categories/${btn.dataset.id}`);
+      toast('Evenement verwijderd');
+      loadEvents();
+    });
+  });
+
+  list.querySelectorAll('.ev-upload-input').forEach(input => {
+    input.addEventListener('change', async () => {
+      const eventId = input.dataset.event;
+      const files = [...input.files];
+      input.value = '';
+      if (!files.length) return;
+
+      const card = document.getElementById(`ev-card-${eventId}`);
+      if (!card.classList.contains('open')) card.classList.add('open');
+
+      const progressEl = document.getElementById(`ev-progress-${eventId}`);
+      progressEl.innerHTML = `<div class="progress-item"><span>${files.length} foto${files.length > 1 ? "'s" : ''} uploaden...</span><div class="progress-bar-wrap"><div class="progress-bar" id="ev-bar-${eventId}" style="width:0%"></div></div></div>`;
+
+      const fd = new FormData();
+      fd.append('category_id', eventId);
+      files.forEach(f => fd.append('photos', f));
+
+      let prog = 0;
+      const iv = setInterval(() => {
+        prog = Math.min(prog + 15, 85);
+        const bar = document.getElementById(`ev-bar-${eventId}`);
+        if (bar) bar.style.width = prog + '%';
+      }, 200);
+
+      const result = await apiUpload('/api/admin/photos', fd);
+      clearInterval(iv);
+
+      if (result?.length) {
+        toast(`${result.length} foto${result.length > 1 ? "'s" : ''} toegevoegd`);
+        setTimeout(() => progressEl.innerHTML = '', 2000);
+        loadEventPhotos(eventId);
+        loadEvents();
+      } else {
+        toast('Upload mislukt', true);
+        progressEl.innerHTML = '';
+      }
+    });
+  });
+}
+
+async function loadEventPhotos(eventId) {
+  const grid = document.getElementById(`ev-grid-${eventId}`);
+  if (!grid) return;
+  grid.innerHTML = '<p style="color:var(--gray);grid-column:1/-1;font-size:.85rem">Laden...</p>';
+
+  const [photos, allCats] = await Promise.all([
+    api('GET', `/api/admin/photos?category_id=${eventId}`),
+    api('GET', '/api/admin/categories'),
+  ]);
+  const ev = allCats?.find(c => c.id === +eventId);
+
+  if (!photos?.length) {
+    grid.innerHTML = '<p style="color:var(--gray);grid-column:1/-1;font-size:.85rem">Nog geen foto\'s. Upload er hierboven.</p>';
+    return;
+  }
+
+  grid.innerHTML = photos.map(p => `
+    <div class="photo-thumb" data-id="${p.id}">
+      <img src="${p.url || '/uploads/' + p.filename}" alt="${p.title || ''}" loading="lazy">
+      ${ev?.cover_photo_id === p.id ? '<span class="photo-cover-badge">Cover</span>' : ''}
+      <div class="photo-thumb-actions">
+        <button class="btn-cover-ev" data-id="${p.id}" data-event="${eventId}">Als cover</button>
+        <button class="btn-del-ev-photo" data-id="${p.id}" data-event="${eventId}">Verwijderen</button>
+      </div>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.btn-cover-ev').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await api('PUT', `/api/admin/categories/${btn.dataset.event}/cover`, { photo_id: +btn.dataset.id });
+      toast('Coverfoto ingesteld');
+      loadEventPhotos(eventId);
+      loadEvents();
+    });
+  });
+
+  grid.querySelectorAll('.btn-del-ev-photo').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Foto verwijderen?')) return;
+      await api('DELETE', `/api/admin/photos/${btn.dataset.id}`);
+      toast('Foto verwijderd');
+      loadEventPhotos(eventId);
+      loadEvents();
+    });
+  });
+}
+
+function openEventModal(event = null) {
+  const form = document.getElementById('event-form');
+  form.reset();
+  document.getElementById('event-modal-title').textContent = event ? 'Evenement bewerken' : 'Evenement toevoegen';
+  if (event) {
+    form.elements.id.value = event.id;
+    form.elements.name.value = event.name;
+    form.elements.event_date.value = event.event_date || '';
+    form.elements.description.value = event.description || '';
+    form.elements.sort_order.value = event.sort_order;
+  }
+  document.getElementById('event-modal').classList.add('open');
+  form.elements.name.focus();
+}
+
+function closeEventModal() {
+  document.getElementById('event-modal').classList.remove('open');
+}
+
+async function saveEvent(e) {
+  e.preventDefault();
+  const form = e.target;
+  const id = form.elements.id.value;
+  const body = {
+    name: form.elements.name.value,
+    event_date: form.elements.event_date.value,
+    description: form.elements.description.value,
+    sort_order: +form.elements.sort_order.value,
+    visible: true,
+    parent_id: evenementenCatId,
+  };
+
+  if (id) {
+    await api('PUT', `/api/admin/categories/${id}`, body);
+    toast('Evenement opgeslagen');
+  } else {
+    const result = await api('POST', '/api/admin/categories', body);
+    if (result?.error) { toast(result.error, true); return; }
+    toast('Evenement aangemaakt');
+  }
+
+  closeEventModal();
+  loadEvents();
 }
 
 // ── Private galleries ─────────────────────────────────────────────────────────

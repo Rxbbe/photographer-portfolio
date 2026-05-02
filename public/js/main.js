@@ -118,8 +118,9 @@ async function initGallery() {
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug) { window.location.href = '/'; return; }
 
-  const [cat, photos] = await Promise.all([
+  const [cat, subcats, photos] = await Promise.all([
     fetch(`/api/categories/${slug}`).then(r => r.ok ? r.json() : null),
+    fetch(`/api/categories/${slug}/subcategories`).then(r => r.json()).catch(() => []),
     fetch(`/api/categories/${slug}/photos`).then(r => r.json()).catch(() => []),
   ]);
 
@@ -131,9 +132,37 @@ async function initGallery() {
   if (h1) h1.textContent = cat.name;
   if (desc) desc.textContent = cat.description || '';
 
-  galleryPhotos = photos;
+  // Update back link: sub-evenementen linken terug naar de parent categorie
+  const backLink = document.querySelector('.back-link');
+  if (backLink && cat.parent_slug) {
+    backLink.href = `/gallery.html?slug=${cat.parent_slug}`;
+    backLink.innerHTML = backLink.innerHTML.replace('Terug naar overzicht', `Terug naar ${cat.parent_name}`);
+  }
+
   const grid = document.getElementById('gallery-grid');
   if (!grid) return;
+
+  // Als deze categorie sub-evenementen heeft: toon het evenementenraster
+  if (subcats.length > 0) {
+    grid.className = 'categories-grid';
+    grid.style.cssText = 'padding: 3rem 2rem; max-width: 1400px; margin: 0 auto;';
+    grid.innerHTML = subcats.map(c => `
+      <a href="/gallery.html?slug=${c.slug}" class="cat-card">
+        ${c.cover_url
+          ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
+          : `<div class="cat-placeholder">Geen foto's</div>`}
+        <div class="cat-card-overlay">
+          <div class="cat-card-name">${c.name}</div>
+          ${c.description ? `<div class="cat-card-desc">${c.description}</div>` : ''}
+          <div class="cat-card-count">${c.photo_count} foto${c.photo_count !== 1 ? "'s" : ''}</div>
+        </div>
+      </a>
+    `).join('');
+    return;
+  }
+
+  // Anders: toon de foto's van deze categorie
+  galleryPhotos = photos;
 
   if (!photos.length) {
     grid.innerHTML = '<div class="gallery-empty">Nog geen foto\'s in deze categorie.</div>';
