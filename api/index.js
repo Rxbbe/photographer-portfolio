@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { neon } = require('@neondatabase/serverless');
+const postgres = require('postgres');
 const { put, del } = require('@vercel/blob');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
@@ -14,7 +14,7 @@ const IS_VERCEL = !!process.env.VERCEL;
 const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
 const ADMIN_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123', 10);
 
-const sql = neon(process.env.DATABASE_URL);
+const sql = postgres(process.env.DATABASE_URL, { max: 1, idle_timeout: 20, connect_timeout: 10, ssl: 'require' });
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const ADMIN_DIR  = path.join(__dirname, '..', 'admin');
