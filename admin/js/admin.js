@@ -1011,16 +1011,15 @@ let accountModalGalleryId = null;
 
 function openAccountModal(galleryId) {
   accountModalGalleryId = galleryId;
-  let modal = document.getElementById('account-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'account-modal';
-    modal.className = 'modal';
-    modal.innerHTML = `
-      <div class="modal-box" style="max-width:420px">
-        <h2 class="modal-title">Account aanmaken</h2>
+  let overlay = document.getElementById('account-modal');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'account-modal';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3>Account aanmaken</h3>
         <form id="account-form">
-          <input type="hidden" name="id">
           <div class="form-group">
             <label>Naam *</label>
             <input type="text" name="name" required placeholder="Voornaam achternaam">
@@ -1029,16 +1028,16 @@ function openAccountModal(galleryId) {
             <label>E-mailadres *</label>
             <input type="email" name="email" required placeholder="klant@email.com">
           </div>
-          <div class="form-actions">
+          <div class="modal-actions">
             <button type="button" id="account-modal-cancel" class="btn btn-outline">Annuleren</button>
             <button type="submit" class="btn btn-primary">Account aanmaken</button>
           </div>
         </form>
       </div>`;
-    document.body.appendChild(modal);
+    document.body.appendChild(overlay);
 
-    document.getElementById('account-modal-cancel').addEventListener('click', () => modal.classList.remove('open'));
-    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+    document.getElementById('account-modal-cancel').addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
 
     document.getElementById('account-form').addEventListener('submit', async e => {
       e.preventDefault();
@@ -1049,7 +1048,7 @@ function openAccountModal(galleryId) {
         gallery_id: accountModalGalleryId,
       });
       if (result?.error) { toast(result.error, true); return; }
-      modal.classList.remove('open');
+      overlay.classList.remove('open');
       form.reset();
       loadGalleryAccounts(accountModalGalleryId);
       showCredentialsModal(result.name, result.email, result.password);
@@ -1057,29 +1056,29 @@ function openAccountModal(galleryId) {
   }
 
   document.getElementById('account-form').reset();
-  modal.classList.add('open');
-  setTimeout(() => modal.querySelector('[name=name]').focus(), 50);
+  overlay.classList.add('open');
+  setTimeout(() => overlay.querySelector('[name=name]').focus(), 50);
 }
 
 function showCredentialsModal(name, email, password) {
-  let modal = document.getElementById('credentials-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'credentials-modal';
-    modal.className = 'modal';
-    modal.innerHTML = `
-      <div class="modal-box" style="max-width:440px;text-align:center">
-        <h2 class="modal-title">Account aangemaakt</h2>
-        <p style="color:var(--gray);font-size:.88rem;margin-bottom:1.5rem">Kopieer de inloggegevens en stuur ze naar de klant. Het wachtwoord wordt niet opnieuw getoond.</p>
-        <div id="cred-box" style="background:var(--light);padding:1.25rem;text-align:left;font-size:.88rem;line-height:1.8;border-radius:4px;margin-bottom:1.25rem;white-space:pre-wrap;font-family:monospace"></div>
-        <div class="form-actions" style="justify-content:center;gap:.75rem">
+  let overlay = document.getElementById('credentials-modal');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'credentials-modal';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:480px;text-align:center">
+        <h3>Account aangemaakt ✓</h3>
+        <p style="color:var(--gray);font-size:.88rem;margin:0.5rem 0 1.25rem">Kopieer de inloggegevens en stuur ze naar de klant.<br>Het wachtwoord wordt niet opnieuw getoond.</p>
+        <div id="cred-box" style="background:var(--bg);padding:1rem 1.25rem;text-align:left;font-size:.83rem;line-height:1.9;border-radius:var(--radius);margin-bottom:1.25rem;white-space:pre-wrap;font-family:monospace;border:1px solid var(--border)"></div>
+        <div class="modal-actions" style="justify-content:center">
           <button id="cred-copy-btn" class="btn btn-primary">Kopieer inloggegevens</button>
           <button id="cred-close-btn" class="btn btn-outline">Sluiten</button>
         </div>
       </div>`;
-    document.body.appendChild(modal);
-    document.getElementById('cred-close-btn').addEventListener('click', () => modal.classList.remove('open'));
-    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+    document.body.appendChild(overlay);
+    document.getElementById('cred-close-btn').addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
   }
 
   const baseUrl = window.location.origin;
@@ -1091,7 +1090,7 @@ function showCredentialsModal(name, email, password) {
     toast('Inloggegevens gekopieerd!');
   };
 
-  modal.classList.add('open');
+  overlay.classList.add('open');
 }
 
 function formatDateShort(str) {
