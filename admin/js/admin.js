@@ -13,14 +13,24 @@ async function api(method, url, body) {
   return res.json().catch(() => null);
 }
 
-async function apiUpload(url, formData) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  });
-  if (res.status === 401) { logout(); return null; }
-  return res.json();
+async function directUpload(files, onProgress) {
+  const signed = await Promise.all(files.map(f =>
+    api('POST', '/api/admin/upload-url', { filename: f.name, mimetype: f.type || 'image/jpeg' })
+  ));
+
+  let done = 0;
+  await Promise.all(signed.map(async (s, i) => {
+    if (s?.error) throw new Error(s.error);
+    await fetch(s.signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': files[i].type || 'image/jpeg' },
+      body: files[i],
+    });
+    done++;
+    if (onProgress) onProgress(done, files.length);
+  }));
+
+  return signed.map(s => s.publicUrl);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -162,43 +172,35 @@ async function uploadFiles(files, categoryId) {
   if (!categoryId) { toast('Kies eerst een categorie', true); return; }
 
   const progressEl = document.getElementById('upload-progress');
-  progressEl.innerHTML = '';
+  progressEl.innerHTML = `
+    <div class="progress-item">
+      <span style="flex:1">Uploaden (0 / ${files.length})</span>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="main-upload-bar" style="width:0%"></div></div>
+      <span id="main-upload-pct" style="flex:0 0 50px;text-align:right;color:var(--gray)">0%</span>
+    </div>`;
 
-  const fd = new FormData();
-  fd.append('category_id', categoryId);
-  files.forEach(f => {
-    fd.append('photos', f);
-    progressEl.innerHTML += `
-      <div class="progress-item" id="prog-${f.name.replace(/\W/g, '')}">
-        <span style="flex:0 0 150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
-        <div class="progress-bar-wrap"><div class="progress-bar" style="width:0%"></div></div>
-        <span style="flex:0 0 60px;text-align:right;color:var(--gray)">0%</span>
-      </div>`;
-  });
+  try {
+    const urls = await directUpload(files, (done, total) => {
+      const pct = Math.round(done / total * 100);
+      const bar = document.getElementById('main-upload-bar');
+      const txt = document.getElementById('main-upload-pct');
+      if (bar) bar.style.width = pct + '%';
+      if (txt) txt.textContent = pct + '%';
+      progressEl.querySelector('span').textContent = `Uploaden (${done} / ${total})`;
+    });
 
-  // Simulate upload progress then do actual upload
-  const progressBars = progressEl.querySelectorAll('.progress-bar');
-  const progressTexts = progressEl.querySelectorAll('.progress-item span:last-child');
+    const result = await api('POST', '/api/admin/photos', { category_id: categoryId, urls });
 
-  let progress = 0;
-  const interval = setInterval(() => {
-    progress = Math.min(progress + Math.random() * 20, 85);
-    progressBars.forEach(b => b.style.width = progress + '%');
-    progressTexts.forEach(t => t.textContent = Math.round(progress) + '%');
-  }, 200);
-
-  const result = await apiUpload('/api/admin/photos', fd);
-
-  clearInterval(interval);
-  progressBars.forEach(b => b.style.width = '100%');
-  progressTexts.forEach(t => t.textContent = '100%');
-
-  if (result?.length) {
-    toast(`${result.length} foto${result.length !== 1 ? "'s" : ''} geüpload!`);
-    setTimeout(() => progressEl.innerHTML = '', 2000);
-    await loadDashboard();
-  } else {
-    toast('Upload mislukt', true);
+    if (result?.length) {
+      toast(`${result.length} foto${result.length !== 1 ? "'s" : ''} geüpload!`);
+      setTimeout(() => progressEl.innerHTML = '', 2000);
+      await loadDashboard();
+    } else {
+      toast('Opslaan mislukt', true);
+      setTimeout(() => progressEl.innerHTML = '', 3000);
+    }
+  } catch (err) {
+    toast('Upload mislukt: ' + err.message, true);
     setTimeout(() => progressEl.innerHTML = '', 3000);
   }
 }
@@ -389,14 +391,12 @@ async function initSettingsPage() {
   profileInput.addEventListener('change', async () => {
     const file = profileInput.files[0];
     if (!file) return;
-    const fd = new FormData();
-    fd.append('photos', file);
-    fd.append('category_id', '');
-    const result = await apiUpload('/api/admin/photos', fd);
-    if (result?.[0]) {
-      // Rename via a trick: we just note the filename. The about.html looks for /uploads/profile.jpg
-      // For simplicity, show the URL
-      toast(`Foto geüpload: ${result[0].filename}. Sla deze naam op.`);
+    try {
+      const urls = await directUpload([file]);
+      const result = await api('POST', '/api/admin/photos', { category_id: null, urls });
+      if (result?.[0]) toast(`Foto geüpload. URL: ${result[0].url}`);
+    } catch (err) {
+      toast('Upload mislukt: ' + err.message, true);
     }
     profileInput.value = '';
   });
@@ -565,29 +565,26 @@ async function loadEvents() {
       if (!card.classList.contains('open')) card.classList.add('open');
 
       const progressEl = document.getElementById(`ev-progress-${eventId}`);
-      progressEl.innerHTML = `<div class="progress-item"><span>${files.length} foto${files.length > 1 ? "'s" : ''} uploaden...</span><div class="progress-bar-wrap"><div class="progress-bar" id="ev-bar-${eventId}" style="width:0%"></div></div></div>`;
+      progressEl.innerHTML = `<div class="progress-item"><span>Uploaden (0 / ${files.length})</span><div class="progress-bar-wrap"><div class="progress-bar" id="ev-bar-${eventId}" style="width:0%"></div></div></div>`;
 
-      const fd = new FormData();
-      fd.append('category_id', eventId);
-      files.forEach(f => fd.append('photos', f));
-
-      let prog = 0;
-      const iv = setInterval(() => {
-        prog = Math.min(prog + 15, 85);
-        const bar = document.getElementById(`ev-bar-${eventId}`);
-        if (bar) bar.style.width = prog + '%';
-      }, 200);
-
-      const result = await apiUpload('/api/admin/photos', fd);
-      clearInterval(iv);
-
-      if (result?.length) {
-        toast(`${result.length} foto${result.length > 1 ? "'s" : ''} toegevoegd`);
-        setTimeout(() => progressEl.innerHTML = '', 2000);
-        loadEventPhotos(eventId);
-        loadEvents();
-      } else {
-        toast('Upload mislukt', true);
+      try {
+        const urls = await directUpload(files, (done, total) => {
+          const bar = document.getElementById(`ev-bar-${eventId}`);
+          if (bar) bar.style.width = Math.round(done / total * 100) + '%';
+          progressEl.querySelector('span').textContent = `Uploaden (${done} / ${total})`;
+        });
+        const result = await api('POST', '/api/admin/photos', { category_id: eventId, urls });
+        if (result?.length) {
+          toast(`${result.length} foto${result.length > 1 ? "'s" : ''} toegevoegd`);
+          setTimeout(() => progressEl.innerHTML = '', 2000);
+          loadEventPhotos(eventId);
+          loadEvents();
+        } else {
+          toast('Opslaan mislukt', true);
+          progressEl.innerHTML = '';
+        }
+      } catch (err) {
+        toast('Upload mislukt: ' + err.message, true);
         progressEl.innerHTML = '';
       }
     });
@@ -842,28 +839,25 @@ async function loadPrivateGalleries() {
       if (!files.length) return;
 
       const progressEl = document.getElementById(`pg-progress-${galleryId}`);
-      progressEl.innerHTML = `<div class="progress-item"><span>${files.length} foto${files.length > 1 ? "'s" : ''} uploaden...</span><div class="progress-bar-wrap"><div class="progress-bar" id="pg-bar-${galleryId}" style="width:0%"></div></div></div>`;
+      progressEl.innerHTML = `<div class="progress-item"><span>Uploaden (0 / ${files.length})</span><div class="progress-bar-wrap"><div class="progress-bar" id="pg-bar-${galleryId}" style="width:0%"></div></div></div>`;
 
-      const fd = new FormData();
-      fd.append('gallery_id', galleryId);
-      files.forEach(f => fd.append('photos', f));
-
-      let prog = 0;
-      const iv = setInterval(() => {
-        prog = Math.min(prog + 15, 85);
-        const bar = document.getElementById(`pg-bar-${galleryId}`);
-        if (bar) bar.style.width = prog + '%';
-      }, 200);
-
-      const result = await apiUpload('/api/admin/private-photos', fd);
-      clearInterval(iv);
-
-      if (result?.length) {
-        toast(`${result.length} foto${result.length > 1 ? "'s" : ''} toegevoegd`);
-        setTimeout(() => progressEl.innerHTML = '', 2000);
-        loadPrivatePhotos(galleryId);
-      } else {
-        toast('Upload mislukt', true);
+      try {
+        const urls = await directUpload(files, (done, total) => {
+          const bar = document.getElementById(`pg-bar-${galleryId}`);
+          if (bar) bar.style.width = Math.round(done / total * 100) + '%';
+          progressEl.querySelector('span').textContent = `Uploaden (${done} / ${total})`;
+        });
+        const result = await api('POST', '/api/admin/private-photos', { gallery_id: galleryId, urls });
+        if (result?.length) {
+          toast(`${result.length} foto${result.length > 1 ? "'s" : ''} toegevoegd`);
+          setTimeout(() => progressEl.innerHTML = '', 2000);
+          loadPrivatePhotos(galleryId);
+        } else {
+          toast('Opslaan mislukt', true);
+          progressEl.innerHTML = '';
+        }
+      } catch (err) {
+        toast('Upload mislukt: ' + err.message, true);
         progressEl.innerHTML = '';
       }
     });

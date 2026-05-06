@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const Database = require('better-sqlite3');
-const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const path = require('path');
@@ -120,15 +119,6 @@ const supabase = createSupabaseClient(
 );
 const STORAGE_BUCKET = 'photos';
 
-async function uploadToSupabase(buffer, mimetype, originalName) {
-  const ext = path.extname(originalName).toLowerCase();
-  const key = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(key, buffer, { contentType: mimetype });
-  if (error) throw error;
-  const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(key);
-  return data.publicUrl;
-}
-
 async function deleteFromSupabase(filename) {
   if (!filename) return;
   if (!filename.startsWith('http')) {
@@ -149,18 +139,9 @@ function photoUrl(filename) {
   return `/uploads/${filename}`;
 }
 
-// ─── Multer (memory storage — files go to Supabase, not disk) ─────────────────
+// ─── Legacy uploads dir (serves old local files) ──────────────────────────────
 const uploadDir = path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
-    cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()));
-  },
-});
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
@@ -297,6 +278,18 @@ app.put('/api/admin/categories/:id/cover', auth, (req, res) => {
   res.json({ success: true });
 });
 
+// Upload signed URL — browser uploads directly to Supabase, bypassing the server
+app.post('/api/admin/upload-url', auth, async (req, res) => {
+  const { filename, mimetype } = req.body;
+  if (!filename || !mimetype) return res.status(400).json({ error: 'filename en mimetype vereist' });
+  const ext = path.extname(filename).toLowerCase();
+  const key = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+  const { data, error } = await supabase.storage.from(STORAGE_BUCKET).createSignedUploadUrl(key);
+  if (error) return res.status(500).json({ error: error.message });
+  const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(key);
+  res.json({ signedUrl: data.signedUrl, publicUrl: urlData.publicUrl });
+});
+
 // Photos (admin)
 app.get('/api/admin/photos', auth, (req, res) => {
   const { category_id } = req.query;
@@ -306,26 +299,19 @@ app.get('/api/admin/photos', auth, (req, res) => {
   res.json(photos.map(p => ({ ...p, url: photoUrl(p.filename) })));
 });
 
-app.post('/api/admin/photos', auth, upload.array('photos', 100), async (req, res) => {
-  if (!req.files?.length) return res.status(400).json({ error: 'Geen bestanden' });
-  const { category_id } = req.body;
+app.post('/api/admin/photos', auth, (req, res) => {
+  const { category_id, urls } = req.body;
+  if (!urls?.length) return res.status(400).json({ error: 'Geen URLs' });
   const maxOrder = category_id
     ? (db.prepare('SELECT MAX(sort_order) as m FROM photos WHERE category_id = ?').get(category_id).m || 0)
     : 0;
-
-  try {
-    const inserted = await Promise.all(req.files.map(async (file, i) => {
-      const url = await uploadToSupabase(file.buffer, file.mimetype, file.originalname);
-      const info = db.prepare('INSERT INTO photos (category_id, filename, sort_order) VALUES (?, ?, ?)').run(
-        category_id || null, url, maxOrder + i + 1
-      );
-      return { id: info.lastInsertRowid, filename: url, url };
-    }));
-    res.json(inserted);
-  } catch (err) {
-    console.error('Upload fout:', err);
-    res.status(500).json({ error: 'Upload naar opslag mislukt: ' + err.message });
-  }
+  const inserted = urls.map((url, i) => {
+    const info = db.prepare('INSERT INTO photos (category_id, filename, sort_order) VALUES (?, ?, ?)').run(
+      category_id || null, url, maxOrder + i + 1
+    );
+    return { id: info.lastInsertRowid, filename: url, url };
+  });
+  res.json(inserted);
 });
 
 app.put('/api/admin/photos/:id', auth, (req, res) => {
@@ -460,21 +446,16 @@ app.get('/api/admin/private-photos', auth, (req, res) => {
   res.json(photos.map(p => ({ ...p, url: photoUrl(p.filename) })));
 });
 
-app.post('/api/admin/private-photos', auth, upload.array('photos', 100), async (req, res) => {
-  const { gallery_id } = req.body;
+app.post('/api/admin/private-photos', auth, (req, res) => {
+  const { gallery_id, urls } = req.body;
   if (!gallery_id) return res.status(400).json({ error: 'gallery_id vereist' });
+  if (!urls?.length) return res.status(400).json({ error: 'Geen URLs' });
   const maxOrder = db.prepare('SELECT MAX(sort_order) AS m FROM private_photos WHERE gallery_id = ?').get(gallery_id).m || 0;
-  try {
-    const inserted = await Promise.all(req.files.map(async (file, i) => {
-      const url = await uploadToSupabase(file.buffer, file.mimetype, file.originalname);
-      const info = db.prepare('INSERT INTO private_photos (gallery_id, filename, sort_order) VALUES (?, ?, ?)').run(gallery_id, url, maxOrder + i + 1);
-      return { id: info.lastInsertRowid, filename: url, url };
-    }));
-    res.json(inserted);
-  } catch (err) {
-    console.error('Upload fout:', err);
-    res.status(500).json({ error: 'Upload naar opslag mislukt: ' + err.message });
-  }
+  const inserted = urls.map((url, i) => {
+    const info = db.prepare('INSERT INTO private_photos (gallery_id, filename, sort_order) VALUES (?, ?, ?)').run(gallery_id, url, maxOrder + i + 1);
+    return { id: info.lastInsertRowid, filename: url, url };
+  });
+  res.json(inserted);
 });
 
 app.delete('/api/admin/private-photos/:id', auth, async (req, res) => {
