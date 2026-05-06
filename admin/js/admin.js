@@ -759,6 +759,15 @@ async function loadPrivateGalleries() {
           <p style="color:var(--gray);grid-column:1/-1;font-size:.85rem">Klik op de header om foto's te zien.</p>
         </div>
         <div class="upload-progress" id="pg-progress-${g.id}"></div>
+        <div class="accounts-section" id="pg-accounts-${g.id}" style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1.25rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+            <span style="font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray)">Client accounts</span>
+            <button class="btn btn-outline btn-sm btn-add-account" data-gallery="${g.id}">+ Account aanmaken</button>
+          </div>
+          <div class="accounts-list" id="pg-accounts-list-${g.id}">
+            <p style="color:var(--gray);font-size:.82rem">Klik op de header om accounts te zien.</p>
+          </div>
+        </div>
       </div>
     </div>
   `).join('');
@@ -770,7 +779,10 @@ async function loadPrivateGalleries() {
       const card = header.closest('.private-gallery-card');
       const wasOpen = card.classList.contains('open');
       card.classList.toggle('open');
-      if (!wasOpen) loadPrivatePhotos(header.dataset.id);
+      if (!wasOpen) {
+        loadPrivatePhotos(header.dataset.id);
+        loadGalleryAccounts(header.dataset.id);
+      }
     });
   });
 
@@ -783,12 +795,12 @@ async function loadPrivateGalleries() {
     });
   });
 
-  // Copy instructions
+  // Copy instructions (legacy — only useful if gallery still has old password)
   list.querySelectorAll('.copy-instructions-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const baseUrl = window.location.origin;
-      const text = `Beste ${btn.dataset.name},\n\nJe foto's zijn klaar! Bekijk ze via:\n🔗 ${baseUrl}/prive\n🔑 Toegangscode: ${btn.dataset.pw}\n\nDruk in de galerij op een foto om hem te vergroten en te downloaden.`;
+      const text = `Beste ${btn.dataset.name},\n\nJe foto's zijn klaar! Bekijk ze via:\n🔗 ${baseUrl}/prive\n\nLog in met je e-mailadres en je toegangswachtwoord.\n\nDruk in de galerij op een foto om hem te vergroten en te downloaden.`;
       navigator.clipboard.writeText(text);
       toast('Instructies gekopieerd naar klembord!');
     });
@@ -810,6 +822,14 @@ async function loadPrivateGalleries() {
       await api('DELETE', `/api/admin/private-galleries/${btn.dataset.id}`);
       toast('Galerij verwijderd');
       loadPrivateGalleries();
+    });
+  });
+
+  // Add account
+  list.querySelectorAll('.btn-add-account').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openAccountModal(btn.dataset.gallery);
     });
   });
 
@@ -864,7 +884,7 @@ async function loadPrivatePhotos(galleryId) {
 
   grid.innerHTML = photos.map(p => `
     <div class="photo-thumb" data-id="${p.id}">
-      <img src="/uploads/${p.filename}" alt="" loading="lazy">
+      <img src="${p.url || p.filename}" alt="" loading="lazy">
       <div class="photo-thumb-actions">
         <button class="btn-del-pp" data-id="${p.id}">Verwijderen</button>
       </div>
@@ -943,6 +963,135 @@ async function savePrivateGallery(e) {
   toast(id ? 'Galerij bijgewerkt' : 'Galerij aangemaakt!');
   closePrivateModal();
   loadPrivateGalleries();
+}
+
+// ── Client accounts ───────────────────────────────────────────────────────────
+async function loadGalleryAccounts(galleryId) {
+  const listEl = document.getElementById(`pg-accounts-list-${galleryId}`);
+  if (!listEl) return;
+  listEl.innerHTML = '<p style="color:var(--gray);font-size:.82rem">Laden...</p>';
+
+  const clients = await api('GET', `/api/admin/clients?gallery_id=${galleryId}`);
+
+  if (!clients?.length) {
+    listEl.innerHTML = '<p style="color:var(--gray);font-size:.82rem">Nog geen accounts voor deze galerij.</p>';
+    return;
+  }
+
+  listEl.innerHTML = clients.map(c => `
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.88rem;font-weight:500">${escHtml(c.name)}</div>
+        <div style="font-size:.78rem;color:var(--gray)">${escHtml(c.email)}</div>
+      </div>
+      <button class="btn btn-outline btn-sm btn-reset-pw" data-id="${c.id}" data-name="${escHtml(c.name)}" data-email="${escHtml(c.email)}" title="Nieuw wachtwoord genereren">Reset pw</button>
+      <button class="btn btn-danger btn-sm btn-del-client" data-id="${c.id}" data-gallery="${galleryId}">Verwijderen</button>
+    </div>
+  `).join('');
+
+  listEl.querySelectorAll('.btn-del-client').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Account verwijderen?')) return;
+      await api('DELETE', `/api/admin/clients/${btn.dataset.id}`);
+      toast('Account verwijderd');
+      loadGalleryAccounts(btn.dataset.gallery);
+    });
+  });
+
+  listEl.querySelectorAll('.btn-reset-pw').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Nieuw wachtwoord genereren voor ${btn.dataset.name}?`)) return;
+      const result = await api('PUT', `/api/admin/clients/${btn.dataset.id}/reset-password`);
+      if (result?.password) showCredentialsModal(btn.dataset.name, btn.dataset.email, result.password);
+    });
+  });
+}
+
+let accountModalGalleryId = null;
+
+function openAccountModal(galleryId) {
+  accountModalGalleryId = galleryId;
+  let modal = document.getElementById('account-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'account-modal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:420px">
+        <h2 class="modal-title">Account aanmaken</h2>
+        <form id="account-form">
+          <input type="hidden" name="id">
+          <div class="form-group">
+            <label>Naam *</label>
+            <input type="text" name="name" required placeholder="Voornaam achternaam">
+          </div>
+          <div class="form-group">
+            <label>E-mailadres *</label>
+            <input type="email" name="email" required placeholder="klant@email.com">
+          </div>
+          <div class="form-actions">
+            <button type="button" id="account-modal-cancel" class="btn btn-outline">Annuleren</button>
+            <button type="submit" class="btn btn-primary">Account aanmaken</button>
+          </div>
+        </form>
+      </div>`;
+    document.body.appendChild(modal);
+
+    document.getElementById('account-modal-cancel').addEventListener('click', () => modal.classList.remove('open'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+
+    document.getElementById('account-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const form = e.target;
+      const result = await api('POST', '/api/admin/clients', {
+        name: form.elements.name.value,
+        email: form.elements.email.value,
+        gallery_id: accountModalGalleryId,
+      });
+      if (result?.error) { toast(result.error, true); return; }
+      modal.classList.remove('open');
+      form.reset();
+      loadGalleryAccounts(accountModalGalleryId);
+      showCredentialsModal(result.name, result.email, result.password);
+    });
+  }
+
+  document.getElementById('account-form').reset();
+  modal.classList.add('open');
+  setTimeout(() => modal.querySelector('[name=name]').focus(), 50);
+}
+
+function showCredentialsModal(name, email, password) {
+  let modal = document.getElementById('credentials-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'credentials-modal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:440px;text-align:center">
+        <h2 class="modal-title">Account aangemaakt</h2>
+        <p style="color:var(--gray);font-size:.88rem;margin-bottom:1.5rem">Kopieer de inloggegevens en stuur ze naar de klant. Het wachtwoord wordt niet opnieuw getoond.</p>
+        <div id="cred-box" style="background:var(--light);padding:1.25rem;text-align:left;font-size:.88rem;line-height:1.8;border-radius:4px;margin-bottom:1.25rem;white-space:pre-wrap;font-family:monospace"></div>
+        <div class="form-actions" style="justify-content:center;gap:.75rem">
+          <button id="cred-copy-btn" class="btn btn-primary">Kopieer inloggegevens</button>
+          <button id="cred-close-btn" class="btn btn-outline">Sluiten</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('cred-close-btn').addEventListener('click', () => modal.classList.remove('open'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+  }
+
+  const baseUrl = window.location.origin;
+  const text = `Beste ${name},\n\nJe foto's zijn klaar! Bekijk ze via:\n🔗 ${baseUrl}/prive\n\n📧 E-mailadres: ${email}\n🔑 Wachtwoord: ${password}\n\nDruk in de galerij op een foto om hem te vergroten en te downloaden.`;
+  document.getElementById('cred-box').textContent = text;
+
+  document.getElementById('cred-copy-btn').onclick = () => {
+    navigator.clipboard.writeText(text);
+    toast('Inloggegevens gekopieerd!');
+  };
+
+  modal.classList.add('open');
 }
 
 function formatDateShort(str) {

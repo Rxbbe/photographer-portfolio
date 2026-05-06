@@ -50,6 +50,7 @@
       margin-bottom: 2rem;
       line-height: 1.6;
     }
+    .prive-login-card input[type="email"],
     .prive-login-card input[type="password"] {
       width: 100%;
       border: 1px solid #e5e5e5;
@@ -57,11 +58,11 @@
       font-size: 1rem;
       font-family: var(--sans);
       outline: none;
-      text-align: center;
-      letter-spacing: 0.15em;
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
       transition: border-color 0.2s;
+      box-sizing: border-box;
     }
+    .prive-login-card input[type="email"]:focus,
     .prive-login-card input[type="password"]:focus { border-color: #0a0a0a; }
     .prive-login-error {
       color: #dc2626;
@@ -195,11 +196,12 @@
       </svg>
 
       <h1>Privé Galerij</h1>
-      <p>Voer je toegangscode in om<br>je foto's te bekijken.</p>
+      <p>Log in om je foto's te bekijken.</p>
 
       <form id="prive-login-form">
         <p class="prive-login-error" id="prive-error"></p>
-        <input type="password" id="prive-password" placeholder="Toegangscode" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <input type="email" id="prive-email" placeholder="E-mailadres" autocomplete="email" required>
+        <input type="password" id="prive-password" placeholder="Wachtwoord" autocomplete="current-password" required>
         <button type="submit" class="prive-login-btn" id="prive-submit">Bekijken</button>
       </form>
     </div>
@@ -311,6 +313,7 @@
     // ── Login form ──────────────────────────────────────────────────────────
     document.getElementById('prive-login-form').addEventListener('submit', async e => {
       e.preventDefault();
+      const email = document.getElementById('prive-email').value;
       const password = document.getElementById('prive-password').value;
       const errorEl = document.getElementById('prive-error');
       const btn = document.getElementById('prive-submit');
@@ -323,7 +326,7 @@
         const res = await fetch('/api/private/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password }),
+          body: JSON.stringify({ email, password }),
         });
 
         const data = await res.json();

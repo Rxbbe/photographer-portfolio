@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
+const { createClient: createSupabaseClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -75,6 +76,15 @@ db.exec(`
     sort_order INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    gallery_id INTEGER REFERENCES private_galleries(id),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Seed default settings
@@ -103,20 +113,49 @@ const seedCat = db.prepare('INSERT OR IGNORE INTO categories (name, slug, descri
   ['Diversen', 'diversen', 'Diverse fotografie', 5],
 ].forEach(args => seedCat.run(...args));
 
-// ─── Multer ───────────────────────────────────────────────────────────────────
+// ─── Supabase Storage ─────────────────────────────────────────────────────────
+const supabase = createSupabaseClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+);
+const STORAGE_BUCKET = 'photos';
+
+async function uploadToSupabase(buffer, mimetype, originalName) {
+  const ext = path.extname(originalName).toLowerCase();
+  const key = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(key, buffer, { contentType: mimetype });
+  if (error) throw error;
+  const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(key);
+  return data.publicUrl;
+}
+
+async function deleteFromSupabase(filename) {
+  if (!filename) return;
+  if (!filename.startsWith('http')) {
+    const fp = path.join(uploadDir, filename);
+    if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    return;
+  }
+  try {
+    const url = new URL(filename);
+    const key = url.pathname.split(`/object/public/${STORAGE_BUCKET}/`)[1];
+    if (key) await supabase.storage.from(STORAGE_BUCKET).remove([key]);
+  } catch { /* ignore */ }
+}
+
+function photoUrl(filename) {
+  if (!filename) return null;
+  if (filename.startsWith('http')) return filename;
+  return `/uploads/${filename}`;
+}
+
+// ─── Multer (memory storage — files go to Supabase, not disk) ─────────────────
 const uploadDir = path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-  },
-});
 const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
     cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()));
@@ -125,7 +164,7 @@ const upload = multer({
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
-app.use('/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(uploadDir)); // legacy: serve old local files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/admin', express.static(path.join(__dirname, 'admin')));
 
@@ -164,10 +203,10 @@ app.get('/api/categories', (req, res) => {
   `).all();
 
   const result = cats.map(c => {
-    let cover = c.cover_filename ? `/uploads/${c.cover_filename}` : null;
+    let cover = c.cover_filename ? photoUrl(c.cover_filename) : null;
     if (!cover) {
       const first = db.prepare('SELECT filename FROM photos WHERE category_id = ? ORDER BY sort_order, created_at LIMIT 1').get(c.id);
-      cover = first ? `/uploads/${first.filename}` : null;
+      cover = first ? photoUrl(first.filename) : null;
     }
     const count = db.prepare('SELECT COUNT(*) as n FROM photos WHERE category_id = ?').get(c.id).n;
     return { ...c, cover_url: cover, photo_count: count };
@@ -185,7 +224,7 @@ app.get('/api/categories/:slug/photos', (req, res) => {
   const cat = db.prepare('SELECT * FROM categories WHERE slug = ?').get(req.params.slug);
   if (!cat) return res.status(404).json({ error: 'Niet gevonden' });
   const photos = db.prepare('SELECT * FROM photos WHERE category_id = ? ORDER BY sort_order, created_at').all(cat.id);
-  res.json(photos);
+  res.json(photos.map(p => ({ ...p, url: photoUrl(p.filename) })));
 });
 
 app.get('/api/settings', (req, res) => {
@@ -245,12 +284,9 @@ app.put('/api/admin/categories/:id', auth, (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/admin/categories/:id', auth, (req, res) => {
+app.delete('/api/admin/categories/:id', auth, async (req, res) => {
   const photos = db.prepare('SELECT filename FROM photos WHERE category_id = ?').all(req.params.id);
-  photos.forEach(p => {
-    const fp = path.join(uploadDir, p.filename);
-    if (fs.existsSync(fp)) fs.unlinkSync(fp);
-  });
+  await Promise.all(photos.map(p => deleteFromSupabase(p.filename)));
   db.prepare('DELETE FROM photos WHERE category_id = ?').run(req.params.id);
   db.prepare('DELETE FROM categories WHERE id = ?').run(req.params.id);
   res.json({ success: true });
@@ -267,23 +303,29 @@ app.get('/api/admin/photos', auth, (req, res) => {
   const photos = category_id
     ? db.prepare('SELECT * FROM photos WHERE category_id = ? ORDER BY sort_order, created_at').all(category_id)
     : db.prepare('SELECT * FROM photos ORDER BY created_at DESC').all();
-  res.json(photos);
+  res.json(photos.map(p => ({ ...p, url: photoUrl(p.filename) })));
 });
 
-app.post('/api/admin/photos', auth, upload.array('photos', 100), (req, res) => {
+app.post('/api/admin/photos', auth, upload.array('photos', 100), async (req, res) => {
   if (!req.files?.length) return res.status(400).json({ error: 'Geen bestanden' });
   const { category_id } = req.body;
   const maxOrder = category_id
     ? (db.prepare('SELECT MAX(sort_order) as m FROM photos WHERE category_id = ?').get(category_id).m || 0)
     : 0;
 
-  const inserted = req.files.map((file, i) => {
-    const info = db.prepare('INSERT INTO photos (category_id, filename, sort_order) VALUES (?, ?, ?)').run(
-      category_id || null, file.filename, maxOrder + i + 1
-    );
-    return { id: info.lastInsertRowid, filename: file.filename, url: `/uploads/${file.filename}` };
-  });
-  res.json(inserted);
+  try {
+    const inserted = await Promise.all(req.files.map(async (file, i) => {
+      const url = await uploadToSupabase(file.buffer, file.mimetype, file.originalname);
+      const info = db.prepare('INSERT INTO photos (category_id, filename, sort_order) VALUES (?, ?, ?)').run(
+        category_id || null, url, maxOrder + i + 1
+      );
+      return { id: info.lastInsertRowid, filename: url, url };
+    }));
+    res.json(inserted);
+  } catch (err) {
+    console.error('Upload fout:', err);
+    res.status(500).json({ error: 'Upload naar opslag mislukt: ' + err.message });
+  }
 });
 
 app.put('/api/admin/photos/:id', auth, (req, res) => {
@@ -293,11 +335,10 @@ app.put('/api/admin/photos/:id', auth, (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/admin/photos/:id', auth, (req, res) => {
+app.delete('/api/admin/photos/:id', auth, async (req, res) => {
   const photo = db.prepare('SELECT * FROM photos WHERE id = ?').get(req.params.id);
   if (!photo) return res.status(404).json({ error: 'Niet gevonden' });
-  const fp = path.join(uploadDir, photo.filename);
-  if (fs.existsSync(fp)) fs.unlinkSync(fp);
+  await deleteFromSupabase(photo.filename);
   db.prepare('UPDATE categories SET cover_photo_id = NULL WHERE cover_photo_id = ?').run(req.params.id);
   db.prepare('DELETE FROM photos WHERE id = ?').run(req.params.id);
   res.json({ success: true });
@@ -336,24 +377,32 @@ app.delete('/api/admin/contacts/:id', auth, (req, res) => {
 app.get('/prive', (req, res) => res.sendFile(path.join(__dirname, 'public', 'prive.html')));
 
 app.post('/api/private/login', (req, res) => {
-  const { password } = req.body;
-  if (!password?.trim()) return res.status(400).json({ error: 'Vul een wachtwoord in' });
+  const { email, password } = req.body;
+  if (!password?.trim()) return res.status(400).json({ error: 'Vul je wachtwoord in' });
 
+  if (email?.trim()) {
+    const client = db.prepare('SELECT * FROM clients WHERE email = ?').get(email.trim().toLowerCase());
+    if (!client || !bcrypt.compareSync(password.trim(), client.password_hash)) {
+      return res.status(401).json({ error: 'Ongeldig e-mailadres of wachtwoord' });
+    }
+    const gallery = db.prepare('SELECT id, name, description, event_date FROM private_galleries WHERE id = ?').get(client.gallery_id);
+    if (!gallery) return res.status(401).json({ error: 'Galerij niet gevonden' });
+    const token = jwt.sign({ galleryId: gallery.id }, JWT_SECRET, { expiresIn: '30d' });
+    return res.json({ token, gallery });
+  }
+
+  // Fallback: old gallery-password login (backward compat)
   const gallery = db.prepare('SELECT * FROM private_galleries WHERE password = ?').get(password.trim());
   if (!gallery) return res.status(401).json({ error: 'Ongeldig wachtwoord' });
-
   const token = jwt.sign({ galleryId: gallery.id }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({
-    token,
-    gallery: { id: gallery.id, name: gallery.name, description: gallery.description, event_date: gallery.event_date },
-  });
+  res.json({ token, gallery: { id: gallery.id, name: gallery.name, description: gallery.description, event_date: gallery.event_date } });
 });
 
 app.get('/api/private/photos', privateAuth, (req, res) => {
   const gallery = db.prepare('SELECT id, name, description, event_date FROM private_galleries WHERE id = ?').get(req.galleryId);
   if (!gallery) return res.status(404).json({ error: 'Galerij niet gevonden' });
   const photos = db.prepare('SELECT * FROM private_photos WHERE gallery_id = ? ORDER BY sort_order, created_at').all(req.galleryId);
-  res.json({ gallery, photos });
+  res.json({ gallery, photos: photos.map(p => ({ ...p, url: photoUrl(p.filename) })) });
 });
 
 // ─── Admin: private galleries ──────────────────────────────────────────────────
@@ -396,12 +445,9 @@ app.put('/api/admin/private-galleries/:id', auth, (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/admin/private-galleries/:id', auth, (req, res) => {
+app.delete('/api/admin/private-galleries/:id', auth, async (req, res) => {
   const photos = db.prepare('SELECT filename FROM private_photos WHERE gallery_id = ?').all(req.params.id);
-  photos.forEach(p => {
-    const fp = path.join(uploadDir, p.filename);
-    if (fs.existsSync(fp)) fs.unlinkSync(fp);
-  });
+  await Promise.all(photos.map(p => deleteFromSupabase(p.filename)));
   db.prepare('DELETE FROM private_photos WHERE gallery_id = ?').run(req.params.id);
   db.prepare('DELETE FROM private_galleries WHERE id = ?').run(req.params.id);
   res.json({ success: true });
@@ -410,26 +456,71 @@ app.delete('/api/admin/private-galleries/:id', auth, (req, res) => {
 app.get('/api/admin/private-photos', auth, (req, res) => {
   const { gallery_id } = req.query;
   if (!gallery_id) return res.status(400).json({ error: 'gallery_id vereist' });
-  res.json(db.prepare('SELECT * FROM private_photos WHERE gallery_id = ? ORDER BY sort_order, created_at').all(gallery_id));
+  const photos = db.prepare('SELECT * FROM private_photos WHERE gallery_id = ? ORDER BY sort_order, created_at').all(gallery_id);
+  res.json(photos.map(p => ({ ...p, url: photoUrl(p.filename) })));
 });
 
-app.post('/api/admin/private-photos', auth, upload.array('photos', 100), (req, res) => {
+app.post('/api/admin/private-photos', auth, upload.array('photos', 100), async (req, res) => {
   const { gallery_id } = req.body;
   if (!gallery_id) return res.status(400).json({ error: 'gallery_id vereist' });
   const maxOrder = db.prepare('SELECT MAX(sort_order) AS m FROM private_photos WHERE gallery_id = ?').get(gallery_id).m || 0;
-  const inserted = req.files.map((file, i) => {
-    const info = db.prepare('INSERT INTO private_photos (gallery_id, filename, sort_order) VALUES (?, ?, ?)').run(gallery_id, file.filename, maxOrder + i + 1);
-    return { id: info.lastInsertRowid, filename: file.filename };
-  });
-  res.json(inserted);
+  try {
+    const inserted = await Promise.all(req.files.map(async (file, i) => {
+      const url = await uploadToSupabase(file.buffer, file.mimetype, file.originalname);
+      const info = db.prepare('INSERT INTO private_photos (gallery_id, filename, sort_order) VALUES (?, ?, ?)').run(gallery_id, url, maxOrder + i + 1);
+      return { id: info.lastInsertRowid, filename: url, url };
+    }));
+    res.json(inserted);
+  } catch (err) {
+    console.error('Upload fout:', err);
+    res.status(500).json({ error: 'Upload naar opslag mislukt: ' + err.message });
+  }
 });
 
-app.delete('/api/admin/private-photos/:id', auth, (req, res) => {
+app.delete('/api/admin/private-photos/:id', auth, async (req, res) => {
   const photo = db.prepare('SELECT * FROM private_photos WHERE id = ?').get(req.params.id);
   if (!photo) return res.status(404).json({ error: 'Niet gevonden' });
-  const fp = path.join(uploadDir, photo.filename);
-  if (fs.existsSync(fp)) fs.unlinkSync(fp);
+  await deleteFromSupabase(photo.filename);
   db.prepare('DELETE FROM private_photos WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ─── Client accounts ──────────────────────────────────────────────────────────
+app.get('/api/admin/clients', auth, (req, res) => {
+  const { gallery_id } = req.query;
+  if (!gallery_id) return res.status(400).json({ error: 'gallery_id vereist' });
+  const clients = db.prepare('SELECT id, name, email, created_at FROM clients WHERE gallery_id = ? ORDER BY created_at').all(gallery_id);
+  res.json(clients);
+});
+
+app.post('/api/admin/clients', auth, (req, res) => {
+  const { name, email, gallery_id } = req.body;
+  if (!name?.trim() || !email?.trim() || !gallery_id) {
+    return res.status(400).json({ error: 'Naam, e-mail en galerij zijn verplicht' });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = db.prepare('SELECT id FROM clients WHERE email = ?').get(normalizedEmail);
+  if (existing) return res.status(400).json({ error: 'Dit e-mailadres is al in gebruik' });
+
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const plainPassword = Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const hash = bcrypt.hashSync(plainPassword, 10);
+
+  const info = db.prepare('INSERT INTO clients (name, email, password_hash, gallery_id) VALUES (?, ?, ?, ?)').run(name.trim(), normalizedEmail, hash, gallery_id);
+  res.json({ id: info.lastInsertRowid, name: name.trim(), email: normalizedEmail, password: plainPassword });
+});
+
+app.put('/api/admin/clients/:id/reset-password', auth, (req, res) => {
+  const client = db.prepare('SELECT * FROM clients WHERE id = ?').get(req.params.id);
+  if (!client) return res.status(404).json({ error: 'Niet gevonden' });
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const plainPassword = Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  db.prepare('UPDATE clients SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(plainPassword, 10), req.params.id);
+  res.json({ password: plainPassword });
+});
+
+app.delete('/api/admin/clients/:id', auth, (req, res) => {
+  db.prepare('DELETE FROM clients WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
 

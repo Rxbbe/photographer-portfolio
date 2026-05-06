@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const { createClient } = require\\('@supabase/supabase-js'\\); console.log\\('OK, version:', require\\('@supabase/supabase-js/package.json'\\).version\\)\")",
+      "Bash(node --check server.js)",
+      "Bash(node --check admin/js/admin.js)"
+    ]
+  }
+}
