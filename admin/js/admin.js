@@ -757,12 +757,15 @@ async function loadPrivateGalleries() {
         </div>
         <div class="upload-progress" id="pg-progress-${g.id}"></div>
         <div class="accounts-section" id="pg-accounts-${g.id}" style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1.25rem">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
-            <span style="font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray)">Client accounts</span>
-            <button class="btn btn-outline btn-sm btn-add-account" data-gallery="${g.id}">+ Account aanmaken</button>
+          <div style="margin-bottom:0.75rem">
+            <span style="font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray)">Gekoppelde accounts</span>
           </div>
           <div class="accounts-list" id="pg-accounts-list-${g.id}">
             <p style="color:var(--gray);font-size:.82rem">Klik op de header om accounts te zien.</p>
+          </div>
+          <div style="display:flex;gap:.5rem;margin-top:.75rem;align-items:center">
+            <input type="email" class="link-user-email" placeholder="E-mail van geregistreerde gebruiker" style="flex:1;border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .8rem;font-size:.85rem;font-family:var(--font);outline:none">
+            <button class="btn btn-primary btn-sm btn-link-user" data-gallery="${g.id}">Koppelen</button>
           </div>
         </div>
       </div>
@@ -797,7 +800,7 @@ async function loadPrivateGalleries() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const baseUrl = window.location.origin;
-      const text = `Beste ${btn.dataset.name},\n\nJe foto's zijn klaar! Bekijk ze via:\n🔗 ${baseUrl}/prive\n\nLog in met je e-mailadres en je toegangswachtwoord.\n\nDruk in de galerij op een foto om hem te vergroten en te downloaden.`;
+      const text = `Beste ${btn.dataset.name},\n\nJe foto's zijn klaar! Bekijk ze via:\n🔗 ${baseUrl}/prive\n\nLog in met je e-mailadres en wachtwoord. Heb je nog geen account? Maak er gratis een aan op die pagina.\n\nDruk in de galerij op een foto om hem te vergroten en te downloaden.`;
       navigator.clipboard.writeText(text);
       toast('Instructies gekopieerd naar klembord!');
     });
@@ -822,11 +825,20 @@ async function loadPrivateGalleries() {
     });
   });
 
-  // Add account
-  list.querySelectorAll('.btn-add-account').forEach(btn => {
-    btn.addEventListener('click', e => {
+  // Link user to gallery
+  list.querySelectorAll('.btn-link-user').forEach(btn => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
-      openAccountModal(btn.dataset.gallery);
+      const emailInput = btn.closest('.accounts-section').querySelector('.link-user-email');
+      const email = emailInput.value.trim();
+      if (!email) { toast('Voer een e-mailadres in', true); return; }
+      btn.disabled = true;
+      const result = await api('POST', '/api/admin/user-gallery-link', { email, gallery_id: +btn.dataset.gallery });
+      btn.disabled = false;
+      if (result?.error) { toast(result.error, true); return; }
+      emailInput.value = '';
+      toast('Account gekoppeld');
+      loadGalleryAccounts(btn.dataset.gallery);
     });
   });
 
@@ -965,126 +977,31 @@ async function loadGalleryAccounts(galleryId) {
   if (!listEl) return;
   listEl.innerHTML = '<p style="color:var(--gray);font-size:.82rem">Laden...</p>';
 
-  const clients = await api('GET', `/api/admin/clients?gallery_id=${galleryId}`);
+  const users = await api('GET', `/api/admin/gallery-users/${galleryId}`);
 
-  if (!clients?.length) {
-    listEl.innerHTML = '<p style="color:var(--gray);font-size:.82rem">Nog geen accounts voor deze galerij.</p>';
+  if (!users?.length) {
+    listEl.innerHTML = '<p style="color:var(--gray);font-size:.82rem">Nog geen accounts gekoppeld.</p>';
     return;
   }
 
-  listEl.innerHTML = clients.map(c => `
+  listEl.innerHTML = users.map(u => `
     <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)">
       <div style="flex:1;min-width:0">
-        <div style="font-size:.88rem;font-weight:500">${escHtml(c.name)}</div>
-        <div style="font-size:.78rem;color:var(--gray)">${escHtml(c.email)}</div>
+        <div style="font-size:.88rem;font-weight:500">${escHtml(u.name || u.email)}</div>
+        <div style="font-size:.78rem;color:var(--gray)">${escHtml(u.email)}</div>
       </div>
-      <button class="btn btn-outline btn-sm btn-reset-pw" data-id="${c.id}" data-name="${escHtml(c.name)}" data-email="${escHtml(c.email)}" title="Nieuw wachtwoord genereren">Reset pw</button>
-      <button class="btn btn-danger btn-sm btn-del-client" data-id="${c.id}" data-gallery="${galleryId}">Verwijderen</button>
+      <button class="btn btn-danger btn-sm btn-unlink-user" data-id="${escHtml(u.supabase_user_id)}" data-gallery="${galleryId}">Ontkoppelen</button>
     </div>
   `).join('');
 
-  listEl.querySelectorAll('.btn-del-client').forEach(btn => {
+  listEl.querySelectorAll('.btn-unlink-user').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Account verwijderen?')) return;
-      await api('DELETE', `/api/admin/clients/${btn.dataset.id}`);
-      toast('Account verwijderd');
+      if (!confirm('Account ontkoppelen van deze galerij?')) return;
+      await api('DELETE', `/api/admin/user-gallery-link/${btn.dataset.id}`);
+      toast('Account ontkoppeld');
       loadGalleryAccounts(btn.dataset.gallery);
     });
   });
-
-  listEl.querySelectorAll('.btn-reset-pw').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm(`Nieuw wachtwoord genereren voor ${btn.dataset.name}?`)) return;
-      const result = await api('PUT', `/api/admin/clients/${btn.dataset.id}/reset-password`);
-      if (result?.password) showCredentialsModal(btn.dataset.name, btn.dataset.email, result.password);
-    });
-  });
-}
-
-let accountModalGalleryId = null;
-
-function openAccountModal(galleryId) {
-  accountModalGalleryId = galleryId;
-  let overlay = document.getElementById('account-modal');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'account-modal';
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-      <div class="modal">
-        <h3>Account aanmaken</h3>
-        <form id="account-form">
-          <div class="form-group">
-            <label>Naam *</label>
-            <input type="text" name="name" required placeholder="Voornaam achternaam">
-          </div>
-          <div class="form-group">
-            <label>E-mailadres *</label>
-            <input type="email" name="email" required placeholder="klant@email.com">
-          </div>
-          <div class="modal-actions">
-            <button type="button" id="account-modal-cancel" class="btn btn-outline">Annuleren</button>
-            <button type="submit" class="btn btn-primary">Account aanmaken</button>
-          </div>
-        </form>
-      </div>`;
-    document.body.appendChild(overlay);
-
-    document.getElementById('account-modal-cancel').addEventListener('click', () => overlay.classList.remove('open'));
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
-
-    document.getElementById('account-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const form = e.target;
-      const result = await api('POST', '/api/admin/clients', {
-        name: form.elements.name.value,
-        email: form.elements.email.value,
-        gallery_id: accountModalGalleryId,
-      });
-      if (result?.error) { toast(result.error, true); return; }
-      overlay.classList.remove('open');
-      form.reset();
-      loadGalleryAccounts(accountModalGalleryId);
-      showCredentialsModal(result.name, result.email, result.password);
-    });
-  }
-
-  document.getElementById('account-form').reset();
-  overlay.classList.add('open');
-  setTimeout(() => overlay.querySelector('[name=name]').focus(), 50);
-}
-
-function showCredentialsModal(name, email, password) {
-  let overlay = document.getElementById('credentials-modal');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'credentials-modal';
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-      <div class="modal" style="max-width:480px;text-align:center">
-        <h3>Account aangemaakt ✓</h3>
-        <p style="color:var(--gray);font-size:.88rem;margin:0.5rem 0 1.25rem">Kopieer de inloggegevens en stuur ze naar de klant.<br>Het wachtwoord wordt niet opnieuw getoond.</p>
-        <div id="cred-box" style="background:var(--bg);padding:1rem 1.25rem;text-align:left;font-size:.83rem;line-height:1.9;border-radius:var(--radius);margin-bottom:1.25rem;white-space:pre-wrap;font-family:monospace;border:1px solid var(--border)"></div>
-        <div class="modal-actions" style="justify-content:center">
-          <button id="cred-copy-btn" class="btn btn-primary">Kopieer inloggegevens</button>
-          <button id="cred-close-btn" class="btn btn-outline">Sluiten</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    document.getElementById('cred-close-btn').addEventListener('click', () => overlay.classList.remove('open'));
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
-  }
-
-  const baseUrl = window.location.origin;
-  const text = `Beste ${name},\n\nJe foto's zijn klaar! Bekijk ze via:\n🔗 ${baseUrl}/prive\n\n📧 E-mailadres: ${email}\n🔑 Wachtwoord: ${password}\n\nDruk in de galerij op een foto om hem te vergroten en te downloaden.`;
-  document.getElementById('cred-box').textContent = text;
-
-  document.getElementById('cred-copy-btn').onclick = () => {
-    navigator.clipboard.writeText(text);
-    toast('Inloggegevens gekopieerd!');
-  };
-
-  overlay.classList.add('open');
 }
 
 function formatDateShort(str) {
