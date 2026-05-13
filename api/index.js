@@ -128,8 +128,15 @@ async function initDB() {
 }
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
-// Start DB init immediately at module load so it overlaps with any warm-up time.
+// Start DB init immediately at module load so it runs in parallel with
+// any incoming request, rather than blocking the first request entirely.
 const dbReady = initDB().catch(e => { console.error('DB init failed:', e); });
+
+app.use(async (req, res, next) => {
+  try { await dbReady; next(); } catch (e) {
+    res.status(500).json({ error: 'Database niet beschikbaar' });
+  }
+});
 
 app.use(express.json());
 if (!IS_VERCEL) app.use('/uploads', express.static(UPLOAD_DIR));
@@ -137,13 +144,6 @@ app.use(express.static(PUBLIC_DIR));
 app.use('/admin', express.static(ADMIN_DIR));
 app.get('/prive', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'prive.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(ADMIN_DIR, 'index.html')));
-
-// Only API routes wait for DB — static files are served immediately
-app.use('/api', async (req, res, next) => {
-  try { await dbReady; next(); } catch (e) {
-    res.status(500).json({ error: 'Database niet beschikbaar' });
-  }
-});
 
 // ─── Auth middleware ───────────────────────────────────────────────────────────
 const auth = (req, res, next) => {
