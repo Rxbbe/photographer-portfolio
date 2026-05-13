@@ -16,10 +16,9 @@ const ADMIN_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync(process.en
 
 const sql = postgres(process.env.DATABASE_URL, { max: 1, idle_timeout: 20, connect_timeout: 10, ssl: 'require' });
 
-const supabase = createSupabaseClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
-);
+const supabase = process.env.SUPABASE_URL
+  ? createSupabaseClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)
+  : null;
 const STORAGE_BUCKET = 'photos';
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -308,6 +307,7 @@ app.put('/api/admin/categories/:id/cover', auth, async (req, res) => {
 
 // ─── Admin: photos (direct upload via Supabase signed URLs) ───────────────────
 app.post('/api/admin/upload-url', auth, async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Storage niet geconfigureerd (SUPABASE_URL ontbreekt)' });
   const { filename, mimetype } = req.body;
   if (!filename || !mimetype) return res.status(400).json({ error: 'filename en mimetype vereist' });
   const ext = path.extname(filename).toLowerCase();
