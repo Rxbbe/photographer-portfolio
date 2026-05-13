@@ -13,13 +13,26 @@ async function api(method, url, body) {
   return res.json().catch(() => null);
 }
 
+async function withConcurrency(items, concurrency, fn) {
+  const results = new Array(items.length);
+  let index = 0;
+  async function worker() {
+    while (index < items.length) {
+      const i = index++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
+
 async function directUpload(files, onProgress) {
-  const signed = await Promise.all(files.map(f =>
+  const signed = await withConcurrency(files, 4, f =>
     api('POST', '/api/admin/upload-url', { filename: f.name, mimetype: f.type || 'image/jpeg' })
-  ));
+  );
 
   let done = 0;
-  await Promise.all(signed.map(async (s, i) => {
+  await withConcurrency(signed, 4, async (s, i) => {
     if (s?.error) throw new Error(s.error);
     await fetch(s.signedUrl, {
       method: 'PUT',
@@ -28,7 +41,7 @@ async function directUpload(files, onProgress) {
     });
     done++;
     if (onProgress) onProgress(done, files.length);
-  }));
+  });
 
   return signed.map(s => s.publicUrl);
 }
