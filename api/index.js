@@ -44,96 +44,84 @@ async function deleteFile(photo) {
 }
 
 // ─── DB init ───────────────────────────────────────────────────────────────────
-// Bump this when the schema or seed data changes so migrations re-run once.
-const DB_VERSION = '3';
-
 async function initDB() {
-  // Batch 1: tables with no foreign-key deps (run in parallel)
-  await Promise.all([
-    sql`CREATE TABLE IF NOT EXISTS categories (
-      id SERIAL PRIMARY KEY, name TEXT NOT NULL, slug TEXT UNIQUE NOT NULL,
-      description TEXT DEFAULT '', cover_photo_id INTEGER,
-      sort_order INTEGER DEFAULT 0, visible INTEGER DEFAULT 1,
-      parent_id INTEGER, event_date TEXT DEFAULT '', created_at TIMESTAMP DEFAULT NOW()
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')`,
-    sql`CREATE TABLE IF NOT EXISTS contacts (
-      id SERIAL PRIMARY KEY, name TEXT, email TEXT, phone TEXT, message TEXT,
-      read INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS private_galleries (
-      id SERIAL PRIMARY KEY, name TEXT NOT NULL, description TEXT DEFAULT '',
-      password TEXT NOT NULL DEFAULT '', event_date TEXT DEFAULT '',
-      created_at TIMESTAMP DEFAULT NOW()
-    )`,
-  ]);
+  await sql`CREATE TABLE IF NOT EXISTS categories (
+    id SERIAL PRIMARY KEY, name TEXT NOT NULL, slug TEXT UNIQUE NOT NULL,
+    description TEXT DEFAULT '', cover_photo_id INTEGER,
+    sort_order INTEGER DEFAULT 0, visible INTEGER DEFAULT 1,
+    parent_id INTEGER, created_at TIMESTAMP DEFAULT NOW()
+  )`;
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER`;
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS event_date TEXT DEFAULT ''`;
 
-  // Batch 2: tables that reference batch-1 tables (run in parallel)
-  await Promise.all([
-    sql`CREATE TABLE IF NOT EXISTS photos (
-      id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id),
-      filename TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
-      title TEXT DEFAULT '', description TEXT DEFAULT '',
-      sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS private_photos (
-      id SERIAL PRIMARY KEY, gallery_id INTEGER REFERENCES private_galleries(id),
-      filename TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
-      sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
-    )`,
-    sql`CREATE TABLE IF NOT EXISTS user_gallery_links (
-      id SERIAL PRIMARY KEY,
-      supabase_user_id TEXT UNIQUE NOT NULL,
-      gallery_id INTEGER REFERENCES private_galleries(id) ON DELETE CASCADE,
-      email TEXT NOT NULL, name TEXT, created_at TIMESTAMP DEFAULT NOW()
-    )`,
-  ]);
+  await sql`CREATE TABLE IF NOT EXISTS photos (
+    id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id),
+    filename TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
+    title TEXT DEFAULT '', description TEXT DEFAULT '',
+    sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
+  )`;
 
-  // Skip the rest if this version's migrations already ran
-  const [ver] = await sql`SELECT value FROM settings WHERE key = 'db_version'`;
-  if (ver?.value === DB_VERSION) return;
+  await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')`;
 
-  // Migrations + seed data (only runs once per DB_VERSION)
-  await Promise.all([
-    sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER`,
-    sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS event_date TEXT DEFAULT ''`,
-  ]);
+  await sql`CREATE TABLE IF NOT EXISTS contacts (
+    id SERIAL PRIMARY KEY, name TEXT, email TEXT, phone TEXT, message TEXT,
+    read INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
+  )`;
 
-  await Promise.all([
-    ...([
-      ['site_name',       'Arnoud Bex'],
-      ['hero_title',      'Arnoud Bex'],
-      ['hero_subtitle',   'Elk moment verdient een perfect beeld'],
-      ['about_title',     'Over Mij'],
-      ['about_text',      'Welkom op mijn portfolio. Ik ben een gepassioneerde fotograaf die de mooiste momenten vastlegt.\n\nFotografie is meer dan een foto nemen — het is een emotie, een verhaal, een herinnering voor altijd.'],
-      ['about_quote',     'Een foto zegt meer dan 1000 woorden'],
-      ['contact_email',   ''],
-      ['contact_phone',   ''],
-      ['contact_location','België'],
-      ['instagram_url',   ''],
-      ['facebook_url',    ''],
-    ].map(([k, v]) => sql`INSERT INTO settings (key,value) VALUES (${k},${v}) ON CONFLICT (key) DO NOTHING`)),
-    ...([
-      ['Kinderfotografie',  'kinderfotografie',  'Kinderen vastleggen in hun meest authentieke en ontspannen momenten', 1],
-      ['Portretfotografie', 'portretfotografie', 'Professionele portretfotografie die jouw persoonlijkheid weerspiegelt', 2],
-      ['Fotoshoot',         'fotoshoot',         'Persoonlijke fotoshoots op maat van jouw wensen', 3],
-      ['Evenementen',       'evenementen',       'Evenementen, feesten en speciale gelegenheden vastgelegd', 4],
-      ['Diversen',          'diversen',          'Diverse fotografie', 5],
-    ].map(([name, slug, desc, order]) =>
-      sql`INSERT INTO categories (name,slug,description,sort_order) VALUES (${name},${slug},${desc},${order}) ON CONFLICT (slug) DO NOTHING`
-    )),
-  ]);
+  await sql`CREATE TABLE IF NOT EXISTS private_galleries (
+    id SERIAL PRIMARY KEY, name TEXT NOT NULL, description TEXT DEFAULT '',
+    password TEXT NOT NULL DEFAULT '', event_date TEXT DEFAULT '',
+    created_at TIMESTAMP DEFAULT NOW()
+  )`;
 
-  await sql`INSERT INTO settings (key,value) VALUES ('db_version',${DB_VERSION}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`;
+  await sql`CREATE TABLE IF NOT EXISTS private_photos (
+    id SERIAL PRIMARY KEY, gallery_id INTEGER REFERENCES private_galleries(id),
+    filename TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
+  )`;
+
+  await sql`CREATE TABLE IF NOT EXISTS user_gallery_links (
+    id SERIAL PRIMARY KEY,
+    supabase_user_id TEXT UNIQUE NOT NULL,
+    gallery_id INTEGER REFERENCES private_galleries(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    name TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  )`;
+
+  for (const [k, v] of [
+    ['site_name',       'Arnoud Bex'],
+    ['hero_title',      'Arnoud Bex'],
+    ['hero_subtitle',   'Elk moment verdient een perfect beeld'],
+    ['about_title',     'Over Mij'],
+    ['about_text',      'Welkom op mijn portfolio. Ik ben een gepassioneerde fotograaf die de mooiste momenten vastlegt.\n\nFotografie is meer dan een foto nemen — het is een emotie, een verhaal, een herinnering voor altijd.'],
+    ['about_quote',     'Een foto zegt meer dan 1000 woorden'],
+    ['contact_email',   ''],
+    ['contact_phone',   ''],
+    ['contact_location','België'],
+    ['instagram_url',   ''],
+    ['facebook_url',    ''],
+  ]) {
+    await sql`INSERT INTO settings (key,value) VALUES (${k},${v}) ON CONFLICT (key) DO NOTHING`;
+  }
+
+  for (const [name, slug, desc, order] of [
+    ['Kinderfotografie',  'kinderfotografie',  'Kinderen vastleggen in hun meest authentieke en ontspannen momenten', 1],
+    ['Portretfotografie', 'portretfotografie', 'Professionele portretfotografie die jouw persoonlijkheid weerspiegelt', 2],
+    ['Fotoshoot',         'fotoshoot',         'Persoonlijke fotoshoots op maat van jouw wensen', 3],
+    ['Evenementen',       'evenementen',       'Evenementen, feesten en speciale gelegenheden vastgelegd', 4],
+    ['Diversen',          'diversen',          'Diverse fotografie', 5],
+  ]) {
+    await sql`INSERT INTO categories (name,slug,description,sort_order) VALUES (${name},${slug},${desc},${order}) ON CONFLICT (slug) DO NOTHING`;
+  }
 }
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
-// Start DB init immediately at module load so it runs in parallel with
-// any incoming request, rather than blocking the first request entirely.
-const dbReady = initDB().catch(e => { console.error('DB init failed:', e); });
-
+let dbReady = null;
 app.use(async (req, res, next) => {
+  if (!dbReady) dbReady = initDB().catch(e => { dbReady = null; throw e; });
   try { await dbReady; next(); } catch (e) {
+    console.error('DB init:', e);
     res.status(500).json({ error: 'Database niet beschikbaar' });
   }
 });
