@@ -27,23 +27,22 @@ async function withConcurrency(items, concurrency, fn) {
 }
 
 async function directUpload(files, onProgress) {
-  const signed = await withConcurrency(files, 4, f =>
-    api('POST', '/api/admin/upload-url', { filename: f.name, mimetype: f.type || 'image/jpeg' })
-  );
-
   let done = 0;
-  await withConcurrency(signed, 4, async (s, i) => {
-    if (s?.error) throw new Error(s.error);
-    await fetch(s.signedUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': files[i].type || 'image/jpeg' },
-      body: files[i],
+  const urls = await withConcurrency(Array.from(files), 4, async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/admin/upload', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
     });
+    const data = await res.json();
+    if (data?.error) throw new Error(data.error);
     done++;
     if (onProgress) onProgress(done, files.length);
+    return data.url;
   });
-
-  return signed.map(s => s.publicUrl);
+  return urls;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -770,16 +769,15 @@ async function loadPrivateGalleries() {
         </div>
         <div class="upload-progress" id="pg-progress-${g.id}"></div>
         <div class="accounts-section" id="pg-accounts-${g.id}" style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1.25rem">
-          <div style="margin-bottom:0.75rem">
-            <span style="font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray)">Gekoppelde accounts</span>
+          <div style="margin-bottom:0.5rem">
+            <span style="font-size:.82rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray)">Toegangscode</span>
           </div>
-          <div class="accounts-list" id="pg-accounts-list-${g.id}">
-            <p style="color:var(--gray);font-size:.82rem">Klik op de header om accounts te zien.</p>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <code id="pg-pw-${g.id}" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .8rem;font-size:.95rem;letter-spacing:.08em">laden...</code>
+            <button class="btn btn-outline btn-sm btn-copy-pw" data-gallery="${g.id}">Kopiëren</button>
+            <button class="btn btn-outline btn-sm btn-reset-pw" data-gallery="${g.id}">Nieuw</button>
           </div>
-          <div style="display:flex;gap:.5rem;margin-top:.75rem;align-items:center">
-            <input type="email" class="link-user-email" placeholder="E-mail van geregistreerde gebruiker" style="flex:1;border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .8rem;font-size:.85rem;font-family:var(--font);outline:none">
-            <button class="btn btn-primary btn-sm btn-link-user" data-gallery="${g.id}">Koppelen</button>
-          </div>
+          <p style="font-size:.78rem;color:var(--gray);margin-top:.4rem">Deel deze code met de klant om toegang te geven tot de galerij.</p>
         </div>
       </div>
     </div>
@@ -838,20 +836,32 @@ async function loadPrivateGalleries() {
     });
   });
 
-  // Link user to gallery
-  list.querySelectorAll('.btn-link-user').forEach(btn => {
+  // Load and display gallery passwords
+  list.querySelectorAll('.btn-copy-pw').forEach(btn => {
+    const galleryId = btn.dataset.gallery;
+    // Load password
+    api('GET', `/api/admin/private-galleries/${galleryId}/password`).then(r => {
+      const el = document.getElementById(`pg-pw-${galleryId}`);
+      if (el && r?.password) el.textContent = r.password;
+    });
+    // Copy button
     btn.addEventListener('click', async e => {
       e.stopPropagation();
-      const emailInput = btn.closest('.accounts-section').querySelector('.link-user-email');
-      const email = emailInput.value.trim();
-      if (!email) { toast('Voer een e-mailadres in', true); return; }
-      btn.disabled = true;
-      const result = await api('POST', '/api/admin/user-gallery-link', { email, gallery_id: +btn.dataset.gallery });
-      btn.disabled = false;
-      if (result?.error) { toast(result.error, true); return; }
-      emailInput.value = '';
-      toast('Account gekoppeld');
-      loadGalleryAccounts(btn.dataset.gallery);
+      const el = document.getElementById(`pg-pw-${btn.dataset.gallery}`);
+      if (el) { await navigator.clipboard.writeText(el.textContent); toast('Code gekopieerd'); }
+    });
+  });
+
+  list.querySelectorAll('.btn-reset-pw').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      if (!confirm('Nieuwe toegangscode genereren? De oude code werkt dan niet meer.')) return;
+      const result = await api('POST', `/api/admin/private-galleries/${btn.dataset.gallery}/reset-password`, {});
+      if (result?.password) {
+        const el = document.getElementById(`pg-pw-${btn.dataset.gallery}`);
+        if (el) el.textContent = result.password;
+        toast('Nieuwe code gegenereerd');
+      }
     });
   });
 
@@ -984,38 +994,6 @@ async function savePrivateGallery(e) {
   loadPrivateGalleries();
 }
 
-// ── Client accounts ───────────────────────────────────────────────────────────
-async function loadGalleryAccounts(galleryId) {
-  const listEl = document.getElementById(`pg-accounts-list-${galleryId}`);
-  if (!listEl) return;
-  listEl.innerHTML = '<p style="color:var(--gray);font-size:.82rem">Laden...</p>';
-
-  const users = await api('GET', `/api/admin/gallery-users/${galleryId}`);
-
-  if (!users?.length) {
-    listEl.innerHTML = '<p style="color:var(--gray);font-size:.82rem">Nog geen accounts gekoppeld.</p>';
-    return;
-  }
-
-  listEl.innerHTML = users.map(u => `
-    <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:.88rem;font-weight:500">${escHtml(u.name || u.email)}</div>
-        <div style="font-size:.78rem;color:var(--gray)">${escHtml(u.email)}</div>
-      </div>
-      <button class="btn btn-danger btn-sm btn-unlink-user" data-id="${escHtml(u.supabase_user_id)}" data-gallery="${galleryId}">Ontkoppelen</button>
-    </div>
-  `).join('');
-
-  listEl.querySelectorAll('.btn-unlink-user').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Account ontkoppelen van deze galerij?')) return;
-      await api('DELETE', `/api/admin/user-gallery-link/${btn.dataset.id}`);
-      toast('Account ontkoppeld');
-      loadGalleryAccounts(btn.dataset.gallery);
-    });
-  });
-}
 
 function formatDateShort(str) {
   if (!str) return '';

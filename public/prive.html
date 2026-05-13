@@ -6,7 +6,6 @@
   <title>Privé Galerij</title>
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    /* ── Login wall ────────────────────────────────────────────────────── */
     .prive-login {
       min-height: 100vh;
       display: flex;
@@ -20,7 +19,7 @@
       background: #fff;
       padding: 3rem 2.5rem;
       width: 100%;
-      max-width: 420px;
+      max-width: 400px;
       text-align: center;
     }
     .prive-login-logo {
@@ -32,197 +31,59 @@
       color: #0a0a0a;
       margin-bottom: 2rem;
       display: block;
+      text-decoration: none;
     }
-    .prive-lock-icon {
-      width: 48px;
-      height: 48px;
-      fill: #0a0a0a;
-      margin: 0 auto 1.2rem;
-    }
-    .prive-login-card h1 {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 1.5rem;
-      margin-bottom: 0.5rem;
-    }
-    .prive-login-card p {
-      color: #777;
-      font-size: 0.88rem;
-      margin-bottom: 1.5rem;
-      line-height: 1.6;
-    }
-    .prive-login-card input[type="text"],
-    .prive-login-card input[type="email"],
+    .prive-lock-icon { width: 44px; height: 44px; fill: #0a0a0a; margin: 0 auto 1.2rem; display: block; }
+    .prive-login-card h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 1.5rem; margin-bottom: 0.4rem; }
+    .prive-login-card p { color: #777; font-size: 0.88rem; margin-bottom: 1.5rem; line-height: 1.6; }
     .prive-login-card input[type="password"] {
-      width: 100%;
-      border: 1px solid #e5e5e5;
-      padding: 0.85rem 1rem;
-      font-size: 1rem;
-      font-family: var(--sans);
-      outline: none;
-      margin-bottom: 0.75rem;
-      transition: border-color 0.2s;
-      box-sizing: border-box;
+      width: 100%; border: 1px solid #e5e5e5; padding: 0.85rem 1rem;
+      font-size: 1rem; font-family: var(--sans); outline: none;
+      margin-bottom: 0.75rem; transition: border-color 0.2s; box-sizing: border-box;
     }
-    .prive-login-card input[type="text"]:focus,
-    .prive-login-card input[type="email"]:focus,
     .prive-login-card input[type="password"]:focus { border-color: #0a0a0a; }
-    .prive-login-error {
-      color: #dc2626;
-      font-size: 0.85rem;
-      min-height: 1.3em;
-      margin-bottom: 0.5rem;
-    }
+    .prive-login-error { color: #dc2626; font-size: 0.85rem; min-height: 1.3em; margin-bottom: 0.5rem; }
     .prive-login-btn {
-      width: 100%;
-      padding: 0.9rem;
-      background: #0a0a0a;
-      color: #fff;
-      font-size: 0.8rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      border: none;
-      cursor: pointer;
-      transition: opacity 0.2s;
-      font-family: var(--sans);
+      width: 100%; padding: 0.9rem; background: #0a0a0a; color: #fff;
+      font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase;
+      border: none; cursor: pointer; transition: opacity 0.2s; font-family: var(--sans);
     }
     .prive-login-btn:hover { opacity: 0.85; }
     .prive-login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* Tabs */
-    .prive-tabs {
-      display: flex;
-      border-bottom: 1px solid #e5e5e5;
-      margin-bottom: 1.75rem;
-    }
-    .prive-tab {
-      flex: 1;
-      background: none;
-      border: none;
-      padding: 0.7rem;
-      font-size: 0.85rem;
-      font-family: var(--sans);
-      color: #777;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -1px;
-      transition: color 0.15s, border-color 0.15s;
-    }
-    .prive-tab.active { color: #0a0a0a; border-bottom-color: #0a0a0a; font-weight: 600; }
-    .prive-tab:hover { color: #0a0a0a; }
-
-    /* Views */
-    .prive-view { display: none; }
-    .prive-view.active { display: block; }
-
-    /* Small text link button */
-    .prive-text-btn {
-      background: none;
-      border: none;
-      color: #777;
-      font-size: 0.83rem;
-      cursor: pointer;
-      font-family: var(--sans);
-      margin-top: 0.75rem;
-      text-decoration: underline;
-      transition: color 0.15s;
-    }
-    .prive-text-btn:hover { color: #0a0a0a; }
-
-    /* Check / success icon */
-    .prive-success-icon {
-      width: 52px;
-      height: 52px;
-      fill: #16a34a;
-      margin: 0 auto 1.2rem;
-    }
-
     .prive-back {
-      margin-top: 1.5rem;
-      display: inline-block;
-      color: rgba(255,255,255,0.4);
-      font-size: 0.8rem;
-      text-decoration: none;
-      transition: color 0.2s;
+      margin-top: 1.5rem; display: inline-block; color: rgba(255,255,255,0.4);
+      font-size: 0.8rem; text-decoration: none; transition: color 0.2s;
     }
     .prive-back:hover { color: rgba(255,255,255,0.8); }
 
-    /* ── Gallery view ──────────────────────────────────────────────────── */
     .prive-gallery { display: none; }
     .prive-gallery.visible { display: block; }
-
-    .prive-header {
-      background: #f7f7f7;
-      padding: 6rem 2rem 3rem;
-      text-align: center;
-    }
-    .prive-header-eyebrow {
-      font-size: 0.72rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #777;
-      margin-bottom: 0.8rem;
-    }
-    .prive-header h1 {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: clamp(2rem, 5vw, 3.5rem);
-    }
+    .prive-header { background: #f7f7f7; padding: 6rem 2rem 3rem; text-align: center; }
+    .prive-header-eyebrow { font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: #777; margin-bottom: 0.8rem; }
+    .prive-header h1 { font-family: 'Playfair Display', Georgia, serif; font-size: clamp(2rem, 5vw, 3.5rem); }
     .prive-header p { color: #777; margin-top: 0.6rem; }
-    .prive-event-date {
-      display: inline-block;
-      margin-top: 0.8rem;
-      font-size: 0.82rem;
-      color: #888;
-      letter-spacing: 0.06em;
-    }
+    .prive-event-date { display: inline-block; margin-top: 0.8rem; font-size: 0.82rem; color: #888; letter-spacing: 0.06em; }
     .prive-meta-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 1.2rem 2rem;
-      border-bottom: 1px solid #e8e8e8;
-      font-size: 0.82rem;
-      color: #888;
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 1400px; margin: 0 auto; padding: 1.2rem 2rem;
+      border-bottom: 1px solid #e8e8e8; font-size: 0.82rem; color: #888;
     }
     .prive-logout-btn {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.78rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #777;
-      background: none;
-      border: none;
-      cursor: pointer;
-      transition: color 0.2s;
-      font-family: var(--sans);
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: #777; background: none; border: none; cursor: pointer;
+      transition: color 0.2s; font-family: var(--sans);
     }
     .prive-logout-btn:hover { color: #0a0a0a; }
     .prive-logout-btn svg { width: 14px; height: 14px; fill: currentColor; }
-
     .prive-empty { text-align: center; padding: 6rem 2rem; color: #888; }
-
-    /* Download button in lightbox */
     .lb-download {
-      position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
-      background: rgba(255,255,255,0.15);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.3);
-      padding: 0.5rem 1rem;
-      font-size: 0.75rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-family: var(--sans);
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      text-decoration: none;
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: rgba(255,255,255,0.15); color: white;
+      border: 1px solid rgba(255,255,255,0.3); padding: 0.5rem 1rem;
+      font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.2s; font-family: var(--sans);
+      display: flex; align-items: center; gap: 0.4rem; text-decoration: none;
     }
     .lb-download:hover { background: rgba(255,255,255,0.25); }
     .lb-download svg { width: 14px; height: 14px; fill: currentColor; }
@@ -230,94 +91,26 @@
 </head>
 <body>
 
-  <!-- Login wall -->
+  <!-- Login -->
   <div class="prive-login" id="prive-login" style="display:none">
     <div class="prive-login-card">
       <a href="/" class="prive-login-logo" id="prive-site-name">Fotograaf</a>
-
-      <!-- Tabs (hidden for forgot/reset/check-email/no-gallery views) -->
-      <div class="prive-tabs" id="prive-tabs">
-        <button class="prive-tab active" data-view="login">Inloggen</button>
-        <button class="prive-tab" data-view="register">Registreren</button>
-      </div>
-
-      <!-- Login view -->
-      <div class="prive-view active" id="view-login">
-        <form id="prive-login-form">
-          <p class="prive-login-error" id="prive-error"></p>
-          <input type="email" id="prive-email" placeholder="E-mailadres" autocomplete="email" required>
-          <input type="password" id="prive-password" placeholder="Wachtwoord" autocomplete="current-password" required>
-          <button type="submit" class="prive-login-btn" id="prive-submit">Inloggen</button>
-        </form>
-        <button class="prive-text-btn" id="btn-to-forgot">Wachtwoord vergeten?</button>
-      </div>
-
-      <!-- Register view -->
-      <div class="prive-view" id="view-register">
-        <p>Maak een account aan. De fotograaf koppelt daarna jouw galerij.</p>
-        <form id="prive-register-form">
-          <p class="prive-login-error" id="register-error"></p>
-          <input type="text" id="reg-name" placeholder="Volledige naam" autocomplete="name" required>
-          <input type="email" id="reg-email" placeholder="E-mailadres" autocomplete="email" required>
-          <input type="password" id="reg-password" placeholder="Wachtwoord (min. 6 tekens)" autocomplete="new-password" required minlength="6">
-          <button type="submit" class="prive-login-btn" id="reg-submit">Account aanmaken</button>
-        </form>
-      </div>
-
-      <!-- Forgot password view -->
-      <div class="prive-view" id="view-forgot">
-        <h1>Wachtwoord vergeten</h1>
-        <p>Voer je e-mailadres in en we sturen je een herstelmail.</p>
-        <form id="prive-forgot-form">
-          <p class="prive-login-error" id="forgot-error"></p>
-          <input type="email" id="forgot-email" placeholder="E-mailadres" autocomplete="email" required>
-          <button type="submit" class="prive-login-btn">Stuur herstelmail</button>
-        </form>
-        <button class="prive-text-btn" id="btn-back-to-login">← Terug naar inloggen</button>
-      </div>
-
-      <!-- Password reset view (shown when URL has #type=recovery) -->
-      <div class="prive-view" id="view-reset">
-        <svg class="prive-lock-icon" viewBox="0 0 24 24">
-          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-        </svg>
-        <h1>Nieuw wachtwoord</h1>
-        <p>Kies een nieuw wachtwoord voor je account.</p>
-        <form id="prive-reset-form">
-          <p class="prive-login-error" id="reset-error"></p>
-          <input type="password" id="reset-password" placeholder="Nieuw wachtwoord (min. 6 tekens)" autocomplete="new-password" required minlength="6">
-          <input type="password" id="reset-confirm" placeholder="Wachtwoord bevestigen" required>
-          <button type="submit" class="prive-login-btn">Wachtwoord opslaan</button>
-        </form>
-      </div>
-
-      <!-- Check email notice -->
-      <div class="prive-view" id="view-check-email">
-        <svg class="prive-success-icon" viewBox="0 0 24 24">
-          <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-        </svg>
-        <h1>Check je e-mail</h1>
-        <p id="check-email-msg">We hebben een link gestuurd naar je e-mailadres.</p>
-        <button class="prive-text-btn" id="btn-check-back">← Terug naar inloggen</button>
-      </div>
-
-      <!-- No gallery linked notice -->
-      <div class="prive-view" id="view-no-gallery">
-        <svg class="prive-lock-icon" viewBox="0 0 24 24">
-          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-        </svg>
-        <h1>Galerij niet beschikbaar</h1>
-        <p>Je bent ingelogd, maar je galerij is nog niet beschikbaar. Neem contact op met de fotograaf.</p>
-        <button class="prive-login-btn" id="no-gallery-logout" style="margin-top:0.5rem">Uitloggen</button>
-      </div>
-
+      <svg class="prive-lock-icon" viewBox="0 0 24 24">
+        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+      </svg>
+      <h1>Privé Galerij</h1>
+      <p>Voer de toegangscode in die je van de fotograaf hebt ontvangen.</p>
+      <form id="prive-form">
+        <p class="prive-login-error" id="prive-error"></p>
+        <input type="password" id="prive-password" placeholder="Toegangscode" autocomplete="current-password" required>
+        <button type="submit" class="prive-login-btn" id="prive-submit">Toegang</button>
+      </form>
     </div>
     <a href="/" class="prive-back">← Terug naar website</a>
   </div>
 
-  <!-- Gallery (shown after login) -->
+  <!-- Gallery -->
   <div class="prive-gallery" id="prive-gallery">
-
     <header class="site-header">
       <div class="header-inner">
         <a href="/" class="site-logo" id="gallery-site-name">Fotograaf</a>
@@ -374,84 +167,31 @@
     </a>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script>
-    let supabaseClient = null;
+    const TOKEN_KEY = 'prive_token';
     let photos = [];
     let lbIndex = 0;
     let touchStartX = 0;
 
-    // ── View management ──────────────────────────────────────────────────────────
-    function showView(name) {
-      document.querySelectorAll('.prive-view').forEach(v => v.classList.remove('active'));
-      const view = document.getElementById('view-' + name);
-      if (view) view.classList.add('active');
-
-      const tabsEl = document.getElementById('prive-tabs');
-      const tabViews = ['login', 'register'];
-      if (tabViews.includes(name)) {
-        tabsEl.style.display = 'flex';
-        document.querySelectorAll('.prive-tab').forEach(t => {
-          t.classList.toggle('active', t.dataset.view === name);
-        });
-      } else {
-        tabsEl.style.display = 'none';
-      }
-    }
-
-    document.querySelectorAll('.prive-tab').forEach(tab => {
-      tab.addEventListener('click', () => showView(tab.dataset.view));
-    });
-    document.getElementById('btn-to-forgot').addEventListener('click', () => showView('forgot'));
-    document.getElementById('btn-back-to-login').addEventListener('click', () => showView('login'));
-    document.getElementById('btn-check-back').addEventListener('click', () => showView('login'));
-
-    // ── Boot ─────────────────────────────────────────────────────────────────────
     async function boot() {
       const settings = await fetch('/api/settings').then(r => r.json()).catch(() => ({}));
       const siteName = settings.site_name || 'Fotograaf';
       document.title = `Privé Galerij — ${siteName}`;
       document.getElementById('prive-site-name').textContent = siteName;
       document.getElementById('gallery-site-name').textContent = siteName;
-
-      const footerSocial = document.querySelector('.footer-social');
-      if (footerSocial && settings.instagram_url) {
-        footerSocial.innerHTML = `<a href="${settings.instagram_url}" target="_blank" rel="noopener" aria-label="Instagram">
-          <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-        </a>`;
-      }
       document.getElementById('footer-year').textContent = new Date().getFullYear();
 
-      // Init Supabase client
-      const cfg = await fetch('/api/config').then(r => r.json()).catch(() => null);
-      if (cfg?.supabaseUrl && cfg?.supabaseAnonKey) {
-        supabaseClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-      }
-
-      // Password recovery link: Supabase appends #access_token=...&type=recovery to the redirect URL
-      if (window.location.hash.includes('type=recovery')) {
-        document.getElementById('prive-login').style.display = 'flex';
-        showView('reset');
-        return;
-      }
-
-      // Check existing session
-      if (supabaseClient) {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-          await loadGallery(session.access_token);
-          return;
-        }
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (token) {
+        const ok = await loadGallery(token);
+        if (ok) return;
       }
 
       document.getElementById('prive-login').style.display = 'flex';
-      showView('login');
     }
 
-    // ── Login ────────────────────────────────────────────────────────────────────
-    document.getElementById('prive-login-form').addEventListener('submit', async e => {
+    document.getElementById('prive-form').addEventListener('submit', async e => {
       e.preventDefault();
-      const email = document.getElementById('prive-email').value;
       const password = document.getElementById('prive-password').value;
       const errorEl = document.getElementById('prive-error');
       const btn = document.getElementById('prive-submit');
@@ -461,156 +201,35 @@
       btn.textContent = 'Laden...';
 
       try {
-        if (!supabaseClient) throw new Error('Geen verbinding');
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) {
-          errorEl.textContent = error.message === 'Invalid login credentials'
-            ? 'Ongeldig e-mailadres of wachtwoord.'
-            : error.message;
-          btn.disabled = false;
-          btn.textContent = 'Inloggen';
-          return;
-        }
-        await loadGallery(data.session.access_token);
-      } catch (err) {
-        errorEl.textContent = err.message || 'Er ging iets mis. Probeer opnieuw.';
-        btn.disabled = false;
-        btn.textContent = 'Inloggen';
-      }
-    });
-
-    // ── Register ─────────────────────────────────────────────────────────────────
-    document.getElementById('prive-register-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const name = document.getElementById('reg-name').value.trim();
-      const email = document.getElementById('reg-email').value.trim();
-      const password = document.getElementById('reg-password').value;
-      const errorEl = document.getElementById('register-error');
-      const btn = document.getElementById('reg-submit');
-
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = 'Bezig...';
-
-      try {
-        if (!supabaseClient) throw new Error('Geen verbinding');
-        const { data, error } = await supabaseClient.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: name } },
+        const res = await fetch('/api/private/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
         });
-        if (error) {
-          errorEl.textContent = error.message;
+        const data = await res.json();
+        if (!res.ok) {
+          errorEl.textContent = data.error || 'Ongeldige code.';
           btn.disabled = false;
-          btn.textContent = 'Account aanmaken';
+          btn.textContent = 'Toegang';
           return;
         }
-        if (data.session) {
-          // Email confirmation disabled in Supabase → direct login
-          await loadGallery(data.session.access_token);
-        } else {
-          document.getElementById('check-email-msg').textContent =
-            `We hebben een bevestigingsmail gestuurd naar ${email}. Klik op de link om je account te activeren.`;
-          showView('check-email');
-          btn.disabled = false;
-          btn.textContent = 'Account aanmaken';
-        }
-      } catch (err) {
-        errorEl.textContent = err.message || 'Er ging iets mis. Probeer opnieuw.';
+        localStorage.setItem(TOKEN_KEY, data.token);
+        await loadGallery(data.token);
+      } catch {
+        errorEl.textContent = 'Er ging iets mis. Probeer opnieuw.';
         btn.disabled = false;
-        btn.textContent = 'Account aanmaken';
+        btn.textContent = 'Toegang';
       }
     });
 
-    // ── Forgot password ──────────────────────────────────────────────────────────
-    document.getElementById('prive-forgot-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const email = document.getElementById('forgot-email').value.trim();
-      const errorEl = document.getElementById('forgot-error');
-      const btn = e.target.querySelector('button[type=submit]');
-
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = 'Versturen...';
-
-      try {
-        if (!supabaseClient) throw new Error('Geen verbinding');
-        const redirectTo = window.location.origin + '/prive';
-        await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo });
-        document.getElementById('check-email-msg').textContent =
-          `Als er een account bestaat voor ${email}, ontvang je een herstelmail. Check ook je spamfolder.`;
-        showView('check-email');
-      } catch (err) {
-        errorEl.textContent = err.message || 'Er ging iets mis. Probeer opnieuw.';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Stuur herstelmail';
-      }
-    });
-
-    // ── Password reset ───────────────────────────────────────────────────────────
-    document.getElementById('prive-reset-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const password = document.getElementById('reset-password').value;
-      const confirm = document.getElementById('reset-confirm').value;
-      const errorEl = document.getElementById('reset-error');
-      const btn = e.target.querySelector('button[type=submit]');
-
-      if (password !== confirm) {
-        errorEl.textContent = 'Wachtwoorden komen niet overeen.';
-        return;
-      }
-
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = 'Opslaan...';
-
-      try {
-        if (!supabaseClient) throw new Error('Geen verbinding');
-        const { error } = await supabaseClient.auth.updateUser({ password });
-        if (error) {
-          errorEl.textContent = error.message;
-          btn.disabled = false;
-          btn.textContent = 'Wachtwoord opslaan';
-          return;
-        }
-        history.replaceState(null, '', window.location.pathname);
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-          document.getElementById('prive-login').style.display = 'none';
-          await loadGallery(session.access_token);
-        } else {
-          showView('login');
-        }
-      } catch (err) {
-        errorEl.textContent = err.message || 'Er ging iets mis. Probeer opnieuw.';
-        btn.disabled = false;
-        btn.textContent = 'Wachtwoord opslaan';
-      }
-    });
-
-    // ── No gallery — logout ───────────────────────────────────────────────────────
-    document.getElementById('no-gallery-logout').addEventListener('click', async () => {
-      if (supabaseClient) await supabaseClient.auth.signOut();
-      showView('login');
-    });
-
-    // ── Load gallery ─────────────────────────────────────────────────────────────
-    async function loadGallery(accessToken) {
+    async function loadGallery(token) {
       const res = await fetch('/api/private/photos', {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        document.getElementById('prive-login').style.display = 'flex';
-        if (data.code === 'NO_GALLERY') {
-          showView('no-gallery');
-        } else {
-          showView('login');
-          document.getElementById('prive-error').textContent = 'Sessie verlopen. Log opnieuw in.';
-        }
-        return;
+        localStorage.removeItem(TOKEN_KEY);
+        return false;
       }
 
       const data = await res.json();
@@ -628,40 +247,39 @@
       }
 
       const count = photos.length;
-      document.getElementById('gallery-count').textContent =
-        `${count} foto${count !== 1 ? "'s" : ''}`;
+      document.getElementById('gallery-count').textContent = `${count} foto${count !== 1 ? "'s" : ''}`;
 
       const grid = document.getElementById('prive-grid');
       if (!photos.length) {
         grid.innerHTML = '<div class="prive-empty">Er zijn nog geen foto\'s toegevoegd aan jouw galerij.</div>';
       } else {
-        renderGalleryGrid(grid, photos);
+        renderGrid(grid, photos);
       }
 
       buildNav();
-
       document.getElementById('prive-gallery').classList.add('visible');
       document.getElementById('prive-login').style.display = 'none';
       window.scrollTo(0, 0);
-
-      document.getElementById('prive-logout').addEventListener('click', async () => {
-        if (supabaseClient) await supabaseClient.auth.signOut();
-        document.getElementById('prive-gallery').classList.remove('visible');
-        document.getElementById('prive-login').style.display = 'flex';
-        showView('login');
-      });
-
       initLightbox();
+      return true;
     }
 
-    // ── Nav ──────────────────────────────────────────────────────────────────────
+    document.getElementById('prive-logout').addEventListener('click', () => {
+      localStorage.removeItem(TOKEN_KEY);
+      document.getElementById('prive-gallery').classList.remove('visible');
+      document.getElementById('prive-login').style.display = 'flex';
+      document.getElementById('prive-password').value = '';
+      document.getElementById('prive-error').textContent = '';
+      document.getElementById('prive-submit').disabled = false;
+      document.getElementById('prive-submit').textContent = 'Toegang';
+    });
+
     async function buildNav() {
       const nav = document.getElementById('site-nav');
       const cats = await fetch('/api/categories').then(r => r.json()).catch(() => []);
       let links = `<a href="/">Home</a><a href="/about.html">Over mij</a>`;
       cats.forEach(c => { links += `<a href="/gallery.html?slug=${c.slug}">${c.name}</a>`; });
-      links += `<a href="/contact.html">Contact</a>`;
-      links += `<a href="/prive" class="active">Privé galerij</a>`;
+      links += `<a href="/contact.html">Contact</a><a href="/prive" class="active">Privé galerij</a>`;
       nav.innerHTML = links;
 
       document.getElementById('hamburger').addEventListener('click', () => {
@@ -674,35 +292,53 @@
       });
     }
 
-    // ── Lightbox ──────────────────────────────────────────────────────────────────
+    function renderGrid(grid, items) {
+      const OVERLAY = `<svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:white"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
+      let i = 0;
+      function nextChunk() {
+        const frag = document.createDocumentFragment();
+        const end = Math.min(i + 20, items.length);
+        for (; i < end; i++) {
+          const p = items[i];
+          const item = document.createElement('div');
+          item.className = 'gallery-item';
+          item.dataset.index = i;
+          const img = document.createElement('img');
+          img.src = p.url; img.alt = ''; img.loading = i < 8 ? 'eager' : 'lazy'; img.decoding = 'async';
+          const overlay = document.createElement('div');
+          overlay.className = 'gallery-item-overlay';
+          overlay.innerHTML = OVERLAY;
+          item.append(img, overlay);
+          item.addEventListener('click', () => openLightbox(+item.dataset.index));
+          frag.appendChild(item);
+        }
+        grid.appendChild(frag);
+        if (i < items.length) requestAnimationFrame(nextChunk);
+      }
+      requestAnimationFrame(nextChunk);
+    }
+
     function openLightbox(index) {
-      lbIndex = index;
-      renderLightbox();
+      lbIndex = index; renderLightbox();
       document.getElementById('lightbox').classList.add('open');
       document.body.style.overflow = 'hidden';
     }
-
     function closeLightbox() {
       document.getElementById('lightbox').classList.remove('open');
       document.body.style.overflow = '';
     }
-
     function moveLightbox(dir) {
       lbIndex = (lbIndex + dir + photos.length) % photos.length;
       renderLightbox();
     }
-
     function renderLightbox() {
       const p = photos[lbIndex];
       const img = document.getElementById('lb-img');
-      img.src = p.url;
-      img.alt = '';
+      img.src = p.url; img.alt = '';
       document.getElementById('lb-counter').textContent = `${lbIndex + 1} / ${photos.length}`;
       document.getElementById('lb-download').href = p.url;
-      document.getElementById('lb-download').download = p.filename;
       img.style.animation = 'none'; img.offsetHeight; img.style.animation = '';
     }
-
     function initLightbox() {
       document.getElementById('lb-close').addEventListener('click', closeLightbox);
       document.getElementById('lb-prev').addEventListener('click', () => moveLightbox(-1));
@@ -722,42 +358,6 @@
         const dx = e.changedTouches[0].clientX - touchStartX;
         if (Math.abs(dx) > 50) moveLightbox(dx < 0 ? 1 : -1);
       });
-    }
-
-    // ── Gallery grid (chunked rendering) ────────────────────────────────────────
-    function renderGalleryGrid(grid, photos) {
-      const CHUNK = 20;
-      const OVERLAY_SVG = `<svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:white"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
-      let i = 0;
-
-      function nextChunk() {
-        const frag = document.createDocumentFragment();
-        const end = Math.min(i + CHUNK, photos.length);
-        for (; i < end; i++) {
-          const p = photos[i];
-          const item = document.createElement('div');
-          item.className = 'gallery-item';
-          item.dataset.index = i;
-
-          const img = document.createElement('img');
-          img.src = p.url;
-          img.alt = '';
-          img.loading = i < 8 ? 'eager' : 'lazy';
-          img.decoding = 'async';
-
-          const overlay = document.createElement('div');
-          overlay.className = 'gallery-item-overlay';
-          overlay.innerHTML = OVERLAY_SVG;
-
-          item.append(img, overlay);
-          item.addEventListener('click', () => openLightbox(+item.dataset.index));
-          frag.appendChild(item);
-        }
-        grid.appendChild(frag);
-        if (i < photos.length) requestAnimationFrame(nextChunk);
-      }
-
-      requestAnimationFrame(nextChunk);
     }
 
     boot();

@@ -1,8 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const postgres = require('postgres');
-const { del } = require('@vercel/blob');
-const { createClient: createSupabaseClient } = require('@supabase/supabase-js');
+const { del, put } = require('@vercel/blob');
+const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const path = require('path');
@@ -16,10 +16,7 @@ const ADMIN_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync(process.en
 
 const sql = postgres(process.env.DATABASE_URL, { max: 1, idle_timeout: 20, connect_timeout: 10, ssl: 'require' });
 
-const supabase = process.env.SUPABASE_URL
-  ? createSupabaseClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)
-  : null;
-const STORAGE_BUCKET = 'photos';
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const ADMIN_DIR  = path.join(__dirname, '..', 'admin');
@@ -27,15 +24,12 @@ const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 if (!IS_VERCEL && !fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// ─── File delete (supports Vercel Blob + Supabase Storage) ────────────────────
+// ─── File delete ───────────────────────────────────────────────────────────────
 async function deleteFile(photo) {
   try {
     const url = photo.url || '';
-    if (url.includes('vercel-blob') || url.includes('public.blob.vercel')) {
+    if (url.startsWith('https://') && (url.includes('vercel-blob') || url.includes('public.blob.vercel'))) {
       await del(url);
-    } else if (url.startsWith('http') && url.includes('supabase')) {
-      const key = url.split(`/object/public/${STORAGE_BUCKET}/`)[1];
-      if (key) await supabase.storage.from(STORAGE_BUCKET).remove([key]);
     }
   } catch (e) {
     console.error('deleteFile:', e.message);
@@ -77,15 +71,6 @@ async function initDB() {
     id SERIAL PRIMARY KEY, gallery_id INTEGER REFERENCES private_galleries(id),
     filename TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
     sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
-  )`;
-
-  await sql`CREATE TABLE IF NOT EXISTS user_gallery_links (
-    id SERIAL PRIMARY KEY,
-    supabase_user_id TEXT UNIQUE NOT NULL,
-    gallery_id INTEGER REFERENCES private_galleries(id) ON DELETE CASCADE,
-    email TEXT NOT NULL,
-    name TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
   )`;
 
   for (const [k, v] of [
@@ -143,19 +128,6 @@ const auth = (req, res, next) => {
 const privateAuth = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Niet ingelogd' });
-
-  // Try Supabase Auth token first
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (!error && user) {
-      const [link] = await sql`SELECT gallery_id FROM user_gallery_links WHERE supabase_user_id = ${user.id}`;
-      if (!link) return res.status(403).json({ error: 'Geen galerij gekoppeld. Neem contact op met de fotograaf.', code: 'NO_GALLERY' });
-      req.galleryId = link.gallery_id;
-      return next();
-    }
-  } catch {}
-
-  // Fallback: legacy custom JWT (old gallery-password login)
   try {
     const p = jwt.verify(token, JWT_SECRET);
     if (!p.galleryId) return res.status(401).json({ error: 'Ongeldig token' });
@@ -167,10 +139,6 @@ const privateAuth = async (req, res, next) => {
 };
 
 // ─── Public API ────────────────────────────────────────────────────────────────
-app.get('/api/config', (req, res) => {
-  res.json({ supabaseUrl: process.env.SUPABASE_URL, supabaseAnonKey: process.env.SUPABASE_ANON_KEY });
-});
-
 app.get('/api/categories', async (req, res) => {
   try {
     const cats = await sql`
@@ -305,19 +273,31 @@ app.put('/api/admin/categories/:id/cover', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
-// ─── Admin: photos (direct upload via Supabase signed URLs) ───────────────────
-app.post('/api/admin/upload-url', auth, async (req, res) => {
-  if (!supabase) return res.status(503).json({ error: 'Storage niet geconfigureerd (SUPABASE_URL ontbreekt)' });
-  const { filename, mimetype } = req.body;
-  if (!filename || !mimetype) return res.status(400).json({ error: 'filename en mimetype vereist' });
-  const ext = path.extname(filename).toLowerCase();
-  const key = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  const { data, error } = await supabase.storage.from(STORAGE_BUCKET).createSignedUploadUrl(key);
-  if (error) return res.status(500).json({ error: error.message });
-  const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(key);
-  res.json({ signedUrl: data.signedUrl, publicUrl: urlData.publicUrl });
+// ─── Admin: foto upload (Vercel Blob of lokale opslag) ─────────────────────────
+app.post('/api/admin/upload', auth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand' });
+  try {
+    if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      const key = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+      const blob = await put(key, req.file.buffer, {
+        access: 'public',
+        contentType: req.file.mimetype || 'image/jpeg',
+      });
+      res.json({ url: blob.url });
+    } else {
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+      await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), req.file.buffer);
+      res.json({ url: `/uploads/${filename}` });
+    }
+  } catch (e) {
+    console.error('upload error:', e);
+    res.status(500).json({ error: 'Upload mislukt: ' + e.message });
+  }
 });
 
+// ─── Admin: photos ─────────────────────────────────────────────────────────────
 app.get('/api/admin/photos', auth, async (req, res) => {
   try {
     const { category_id } = req.query;
@@ -406,10 +386,10 @@ app.get('/api/admin/private-galleries', auth, async (req, res) => {
 app.post('/api/admin/private-galleries', auth, async (req, res) => {
   const { name, description, event_date } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Naam is verplicht' });
-  const password = Math.random().toString(36).slice(2, 10); // random, not used for login
+  const password = Math.random().toString(36).slice(2, 10);
   try {
-    const [row] = await sql`INSERT INTO private_galleries (name,description,password,event_date) VALUES (${name.trim()},${description||''},${password},${event_date||''}) RETURNING id`;
-    res.json({ id: row.id });
+    const [row] = await sql`INSERT INTO private_galleries (name,description,password,event_date) VALUES (${name.trim()},${description||''},${password},${event_date||''}) RETURNING id,password`;
+    res.json({ id: row.id, password: row.password });
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
@@ -427,9 +407,24 @@ app.delete('/api/admin/private-galleries/:id', auth, async (req, res) => {
     const photos = await sql`SELECT filename,url FROM private_photos WHERE gallery_id=${req.params.id}`;
     await Promise.all(photos.map(deleteFile));
     await sql`DELETE FROM private_photos WHERE gallery_id=${req.params.id}`;
-    await sql`DELETE FROM user_gallery_links WHERE gallery_id=${req.params.id}`;
     await sql`DELETE FROM private_galleries WHERE id=${req.params.id}`;
     res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'DB fout' }); }
+});
+
+app.get('/api/admin/private-galleries/:id/password', auth, async (req, res) => {
+  try {
+    const [g] = await sql`SELECT password FROM private_galleries WHERE id=${req.params.id}`;
+    if (!g) return res.status(404).json({ error: 'Niet gevonden' });
+    res.json({ password: g.password });
+  } catch (e) { res.status(500).json({ error: 'DB fout' }); }
+});
+
+app.post('/api/admin/private-galleries/:id/reset-password', auth, async (req, res) => {
+  const newPw = Math.random().toString(36).slice(2, 10);
+  try {
+    await sql`UPDATE private_galleries SET password=${newPw} WHERE id=${req.params.id}`;
+    res.json({ password: newPw });
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
@@ -464,54 +459,18 @@ app.delete('/api/admin/private-photos/:id', auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
-// ─── Admin: user-gallery linking ───────────────────────────────────────────────
-app.get('/api/admin/gallery-users/:galleryId', auth, async (req, res) => {
+// ─── Privé galerij (klant) ────────────────────────────────────────────────────
+app.post('/api/private/login', async (req, res) => {
+  const { password } = req.body;
+  if (!password?.trim()) return res.status(400).json({ error: 'Wachtwoord vereist' });
   try {
-    res.json(await sql`SELECT * FROM user_gallery_links WHERE gallery_id=${req.params.galleryId} ORDER BY name`);
+    const [gallery] = await sql`SELECT id FROM private_galleries WHERE password = ${password.trim()}`;
+    if (!gallery) return res.status(401).json({ error: 'Ongeldig wachtwoord' });
+    const token = jwt.sign({ galleryId: gallery.id }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token });
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
-app.post('/api/admin/user-gallery-link', auth, async (req, res) => {
-  const { email, gallery_id } = req.body;
-  if (!email?.trim() || !gallery_id) return res.status(400).json({ error: 'email en gallery_id vereist' });
-
-  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-  if (error) return res.status(500).json({ error: error.message });
-
-  const user = data.users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
-  if (!user) return res.status(404).json({ error: 'Geen geregistreerd account gevonden met dit e-mailadres' });
-
-  const name = user.user_metadata?.name || user.email;
-  try {
-    await sql`
-      INSERT INTO user_gallery_links (supabase_user_id,gallery_id,email,name)
-      VALUES (${user.id},${gallery_id},${user.email},${name})
-      ON CONFLICT (supabase_user_id) DO UPDATE SET gallery_id=EXCLUDED.gallery_id, email=EXCLUDED.email, name=EXCLUDED.name`;
-    res.json({ success: true, supabase_user_id: user.id, email: user.email, name });
-  } catch (e) { res.status(500).json({ error: 'DB fout' }); }
-});
-
-app.delete('/api/admin/user-gallery-link/:userId', auth, async (req, res) => {
-  try {
-    await sql`DELETE FROM user_gallery_links WHERE supabase_user_id=${req.params.userId}`;
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'DB fout' }); }
-});
-
-app.get('/api/admin/unlinked-users', auth, async (req, res) => {
-  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-  if (error) return res.status(500).json({ error: error.message });
-  try {
-    const linked = await sql`SELECT supabase_user_id FROM user_gallery_links`;
-    const linkedIds = new Set(linked.map(r => r.supabase_user_id));
-    const unlinked = data.users
-      .filter(u => u.email_confirmed_at && !linkedIds.has(u.id))
-      .map(u => ({ id: u.id, email: u.email, name: u.user_metadata?.name, created_at: u.created_at }));
-    res.json(unlinked);
-  } catch (e) { res.status(500).json({ error: 'DB fout' }); }
-});
-
-// ─── Private gallery (klant) ───────────────────────────────────────────────────
 app.get('/api/private/photos', privateAuth, async (req, res) => {
   try {
     const [gallery] = await sql`SELECT id,name,description,event_date FROM private_galleries WHERE id=${req.galleryId}`;
