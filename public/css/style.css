@@ -160,24 +160,25 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
 
 .gallery-grid {
   padding: 3rem 1.5rem; max-width: 1400px; margin: 0 auto;
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  columns: 3; column-gap: 12px;
 }
 .gallery-item {
-  overflow: hidden; cursor: pointer;
-  position: relative; aspect-ratio: 3/2;
+  break-inside: avoid; margin-bottom: 12px;
+  overflow: hidden; cursor: pointer; position: relative;
+  border-radius: 2px;
 }
 .gallery-item img {
-  width: 100%; height: 100%; object-fit: cover; display: block;
+  width: 100%; height: auto; display: block;
   transition: transform 0.5s var(--transition), filter 0.3s;
 }
-.gallery-item:hover img { transform: scale(1.03); filter: brightness(0.9); }
+.gallery-item:hover img { transform: scale(1.03); filter: brightness(0.85); }
 .gallery-item-overlay {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: opacity var(--transition);
-  background: rgba(0,0,0,0.2);
+  background: rgba(0,0,0,0.25);
 }
 .gallery-item:hover .gallery-item-overlay { opacity: 1; }
-.gallery-item-overlay svg { width: 32px; height: 32px; fill: white; }
+.gallery-item-overlay svg { width: 36px; height: 36px; fill: white; drop-shadow: 0 1px 4px rgba(0,0,0,0.4); }
 
 .gallery-empty {
   text-align: center; padding: 6rem 2rem; color: var(--gray);
@@ -332,10 +333,10 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
   .about-section, .contact-section { grid-template-columns: 1fr; gap: 2.5rem; }
   .about-image-accent { display: none; }
 
-  .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+  .gallery-grid { columns: 2; }
   .hero { padding: 5rem 1.5rem 3rem; }
 }
 
 @media (max-width: 480px) {
-  .gallery-grid { grid-template-columns: 1fr; }
+  .gallery-grid { columns: 1; }
 }
