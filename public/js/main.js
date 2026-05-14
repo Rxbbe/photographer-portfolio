@@ -105,7 +105,6 @@ async function initHome() {
     </a>
   `).join('');
 
-  if (cats.length > 3) grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
 }
 
 // ── Gallery page ──────────────────────────────────────────────────────────────
