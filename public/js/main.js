@@ -89,8 +89,6 @@ async function initHome() {
   const grid = document.getElementById('categories-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div class="skeleton" style="grid-column:1/3;aspect-ratio:4/3"></div><div class="skeleton" style="aspect-ratio:4/5"></div>';
-
   const cats = await fetch('/api/categories').then(r => r.json()).catch(() => []);
   if (!cats.length) {
     grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#888;padding:3rem">Nog geen categorieën aangemaakt.</p>';
