@@ -28,10 +28,34 @@ async function withConcurrency(items, concurrency, fn) {
 
 const IS_VERCEL = !['localhost', '127.0.0.1'].includes(window.location.hostname);
 
+async function resizeImage(file, maxPx = 2500, quality = 0.88) {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  return new Promise(resolve => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      if (img.width <= maxPx && img.height <= maxPx) { resolve(file); return; }
+      const scale = maxPx / Math.max(img.width, img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        blob => resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
+        'image/jpeg', quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+    img.src = objectUrl;
+  });
+}
+
 async function directUpload(files, onProgress) {
   let done = 0;
   const urls = await withConcurrency(Array.from(files), 4, async (file) => {
-    const url = IS_VERCEL ? await uploadToBlob(file) : await uploadLocal(file);
+    const resized = await resizeImage(file);
+    const url = IS_VERCEL ? await uploadToBlob(resized) : await uploadLocal(resized);
     done++;
     if (onProgress) onProgress(done, files.length);
     return url;

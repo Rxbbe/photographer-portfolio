@@ -77,7 +77,6 @@ async function buildNav() {
 
 // ── Homepage ──────────────────────────────────────────────────────────────────
 async function initHome() {
-  // Apply hero settings
   const heroTitle = document.getElementById('hero-title');
   const heroSub = document.getElementById('hero-subtitle');
   if (heroTitle) heroTitle.innerHTML = siteSettings.hero_title?.replace(/\n/g, '<br>') || 'Fotograaf';
@@ -88,12 +87,12 @@ async function initHome() {
 
   const cats = await fetch('/api/categories').then(r => r.json()).catch(() => []);
   if (!cats.length) {
-    grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#888;padding:3rem">Nog geen categorieën aangemaakt.</p>';
+    grid.innerHTML = '<p style="text-align:center;color:#888;padding:3rem">Nog geen categorieën aangemaakt.</p>';
     return;
   }
 
-  grid.innerHTML = cats.map((c, i) => `
-    <a href="/gallery.html?slug=${c.slug}" class="cat-card${i === 0 ? ' cat-card--featured' : ''}">
+  const catCard = c => `
+    <a href="/gallery.html?slug=${c.slug}" class="cat-card">
       ${c.cover_url
         ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
         : `<div class="cat-placeholder">Geen foto's</div>`}
@@ -102,9 +101,15 @@ async function initHome() {
         ${c.description ? `<div class="cat-card-desc">${c.description}</div>` : ''}
         <div class="cat-card-count">${c.photo_count} foto${c.photo_count !== 1 ? "'s" : ''}</div>
       </div>
-    </a>
-  `).join('');
+    </a>`;
 
+  const events = cats.find(c => c.slug === 'evenementen');
+  const others = cats.filter(c => c.slug !== 'evenementen');
+
+  grid.className = 'home-layout';
+  grid.innerHTML =
+    (events ? `<div class="events-spotlight">${catCard(events)}</div>` : '') +
+    (others.length ? `<div class="categories-grid">${others.map(catCard).join('')}</div>` : '');
 }
 
 // ── Gallery page ──────────────────────────────────────────────────────────────
