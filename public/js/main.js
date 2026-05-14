@@ -93,7 +93,7 @@ async function initHome() {
   }
 
   grid.innerHTML = cats.map((c, i) => `
-    <a href="/gallery.html?slug=${c.slug}" class="cat-card" style="${i === 0 ? 'grid-column:1/3' : ''}">
+    <a href="/gallery.html?slug=${c.slug}" class="cat-card${i === 0 ? ' cat-card--featured' : ''}">
       ${c.cover_url
         ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
         : `<div class="cat-placeholder">Geen foto's</div>`}
