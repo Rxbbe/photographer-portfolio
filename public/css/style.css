@@ -98,9 +98,11 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
 
 .events-spotlight {
   display: flex; justify-content: center;
+  width: clamp(260px, 34%, 420px);
+  margin: 0 auto;
 }
 .events-spotlight .cat-card {
-  width: clamp(260px, 34%, 420px);
+  width: 100%;
 }
 
 .categories-grid {
