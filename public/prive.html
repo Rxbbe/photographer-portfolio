@@ -23,16 +23,10 @@
       text-align: center;
     }
     .prive-login-logo {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 1.3rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #0a0a0a;
-      margin-bottom: 2rem;
-      display: block;
-      text-decoration: none;
+      display: block; line-height: 0;
+      margin-bottom: 2rem; text-decoration: none;
     }
+    .prive-login-logo img { height: 64px; width: auto; }
     .prive-lock-icon { width: 44px; height: 44px; fill: #0a0a0a; margin: 0 auto 1.2rem; display: block; }
     .prive-login-card h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 1.5rem; margin-bottom: 0.4rem; }
     .prive-login-card p { color: #777; font-size: 0.88rem; margin-bottom: 1.5rem; line-height: 1.6; }
@@ -94,7 +88,7 @@
   <!-- Login -->
   <div class="prive-login" id="prive-login" style="display:none">
     <div class="prive-login-card">
-      <a href="/" class="prive-login-logo" id="prive-site-name">Fotograaf</a>
+      <a href="/" class="prive-login-logo" id="prive-site-name"><img src="/images/logo.png" alt="Arnoud Bex Photography"></a>
       <svg class="prive-lock-icon" viewBox="0 0 24 24">
         <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
       </svg>
@@ -113,7 +107,7 @@
   <div class="prive-gallery" id="prive-gallery">
     <header class="site-header">
       <div class="header-inner">
-        <a href="/" class="site-logo" id="gallery-site-name">Fotograaf</a>
+        <a href="/" class="site-logo" id="gallery-site-name"><img src="/images/logo.png" alt="Arnoud Bex Photography"></a>
         <nav class="site-nav" id="site-nav"></nav>
         <button class="hamburger" id="hamburger" aria-label="Menu">
           <span></span><span></span><span></span>
@@ -177,8 +171,6 @@
       const settings = await fetch('/api/settings').then(r => r.json()).catch(() => ({}));
       const siteName = settings.site_name || 'Fotograaf';
       document.title = `Privé Galerij — ${siteName}`;
-      document.getElementById('prive-site-name').textContent = siteName;
-      document.getElementById('gallery-site-name').textContent = siteName;
       document.getElementById('footer-year').textContent = new Date().getFullYear();
 
       const token = localStorage.getItem(TOKEN_KEY);
