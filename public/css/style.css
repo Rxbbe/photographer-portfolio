@@ -327,7 +327,8 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
   .header-inner { position: relative; }
   .site-logo img { height: 52px; }
 
-  .categories-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+  .categories-section { padding: 2rem 0; }
+  .categories-grid { grid-template-columns: 1fr; gap: 3px; }
   .categories-grid .cat-card,
   .categories-grid .cat-card--featured,
   .categories-grid .cat-card--featured + .cat-card { grid-column: 1; aspect-ratio: 4/3; }
