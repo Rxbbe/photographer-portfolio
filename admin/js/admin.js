@@ -697,6 +697,7 @@ async function loadEventPhotos(eventId) {
 function openEventModal(event = null) {
   const form = document.getElementById('event-form');
   form.reset();
+  form.elements.id.value = '';
   document.getElementById('event-modal-title').textContent = event ? 'Evenement bewerken' : 'Evenement toevoegen';
   if (event) {
     form.elements.id.value = event.id;
