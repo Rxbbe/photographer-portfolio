@@ -189,8 +189,13 @@ app.get('/api/categories', (req, res) => {
       const first = db.prepare('SELECT filename FROM photos WHERE category_id = ? ORDER BY sort_order, created_at LIMIT 1').get(c.id);
       cover = first ? photoUrl(first.filename) : null;
     }
-    const count = db.prepare('SELECT COUNT(*) as n FROM photos WHERE category_id = ?').get(c.id).n;
-    return { ...c, cover_url: cover, photo_count: count };
+    if (!cover) {
+      const childFirst = db.prepare('SELECT filename FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = ?) ORDER BY sort_order, created_at LIMIT 1').get(c.id);
+      cover = childFirst ? photoUrl(childFirst.filename) : null;
+    }
+    const ownCount = db.prepare('SELECT COUNT(*) as n FROM photos WHERE category_id = ?').get(c.id).n;
+    const childCount = db.prepare('SELECT COUNT(*) as n FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = ?)').get(c.id).n;
+    return { ...c, cover_url: cover, photo_count: ownCount + childCount };
   });
   res.json(result);
 });
@@ -236,7 +241,8 @@ app.post('/api/admin/login', (req, res) => {
 // Categories (admin)
 app.get('/api/admin/categories', auth, (req, res) => {
   const cats = db.prepare(`
-    SELECT c.*, COUNT(p.id) as photo_count
+    SELECT c.*, COUNT(p.id) as photo_count,
+      EXISTS(SELECT 1 FROM categories ch WHERE ch.parent_id = c.id) as has_children
     FROM categories c
     LEFT JOIN photos p ON p.category_id = c.id
     GROUP BY c.id

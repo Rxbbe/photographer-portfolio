@@ -19,9 +19,6 @@ async function init() {
 
 // ── Global settings ───────────────────────────────────────────────────────────
 function applyGlobalSettings() {
-  const logo = document.getElementById('site-logo');
-  if (logo) logo.textContent = siteSettings.site_name || 'Fotograaf';
-
   document.title = siteSettings.site_name || 'Fotograaf';
 
   // Social links

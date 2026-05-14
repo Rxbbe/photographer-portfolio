@@ -143,8 +143,13 @@ app.get('/api/categories', async (req, res) => {
   try {
     const cats = await sql`
       SELECT c.*,
-        COALESCE(cp.url, (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1)) AS cover_url,
-        (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) AS photo_count
+        COALESCE(
+          cp.url,
+          (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+          (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+        ) AS cover_url,
+        (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
+        (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
       FROM categories c
       LEFT JOIN photos cp ON c.cover_photo_id = cp.id
       WHERE c.visible = 1 AND c.parent_id IS NULL
@@ -225,7 +230,8 @@ app.get('/api/admin/categories', auth, async (req, res) => {
         WHERE c.parent_id=${parent_id} GROUP BY c.id,cp.url ORDER BY c.sort_order,c.name`);
     } else {
       res.json(await sql`
-        SELECT c.*, COUNT(p.id)::int AS photo_count
+        SELECT c.*, COUNT(p.id)::int AS photo_count,
+          (EXISTS (SELECT 1 FROM categories ch WHERE ch.parent_id = c.id)) AS has_children
         FROM categories c LEFT JOIN photos p ON p.category_id=c.id
         GROUP BY c.id ORDER BY c.sort_order,c.name`);
     }

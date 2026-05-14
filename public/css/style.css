@@ -35,12 +35,12 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
 }
 
 .site-logo {
-  padding: 1.2rem 0 0.5rem;
-  font-family: var(--serif); font-size: 1.6rem; font-weight: 700;
-  letter-spacing: 0.05em; text-transform: uppercase;
-  color: var(--black);
+  padding: 0.8rem 0 0.4rem;
+  display: block; line-height: 0;
 }
-.site-logo span { font-weight: 400; font-style: italic; }
+.site-logo img {
+  height: 72px; width: auto;
+}
 
 .site-nav {
   display: flex; gap: 0; padding-bottom: 0;
@@ -325,7 +325,7 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
   .hamburger { display: flex; }
 
   .header-inner { position: relative; }
-  .site-logo { padding: 1rem 0 0.5rem; font-size: 1.3rem; }
+  .site-logo img { height: 52px; }
 
   .categories-grid { grid-template-columns: 1fr; gap: 1rem; }
   .categories-grid .cat-card { grid-column: 1; aspect-ratio: 4/3; }

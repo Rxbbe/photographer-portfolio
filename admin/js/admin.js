@@ -149,12 +149,13 @@ async function loadDashboard() {
     badge.style.display = '';
   }
 
-  // Populate quick-upload category select
+  // Populate quick-upload category select (exclude parent categories like Evenementen)
+  const uploadableCats = (cats || []).filter(c => !c.has_children);
   const sel = document.getElementById('quick-cat-select');
   sel.innerHTML = '<option value="">— Kies categorie —</option>' +
-    (cats || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    uploadableCats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
-  // Also populate photos-page filter
+  // Also populate photos-page filter (include all categories for browsing)
   const photoSel = document.getElementById('photos-cat-filter');
   photoSel.innerHTML = '<option value="">— Kies categorie —</option>' +
     (cats || []).map(c => `<option value="${c.id}">${c.name} (${c.photo_count})</option>`).join('');
@@ -234,9 +235,11 @@ function initPhotosPage() {
 async function refreshPhotosPage() {
   const catId = document.getElementById('photos-cat-filter').value;
   const grid = document.getElementById('photos-grid');
+  const uploadBtn = document.getElementById('photos-upload-btn');
 
   if (!catId) {
     grid.innerHTML = '<p style="color:var(--gray);padding:2rem;grid-column:1/-1">Selecteer een categorie.</p>';
+    if (uploadBtn) uploadBtn.style.display = '';
     return;
   }
 
@@ -245,8 +248,12 @@ async function refreshPhotosPage() {
   const cats = await api('GET', '/api/admin/categories');
   const cat = cats?.find(c => c.id === +catId);
 
+  if (uploadBtn) uploadBtn.style.display = cat?.has_children ? 'none' : '';
+
   if (!photos?.length) {
-    grid.innerHTML = '<p style="color:var(--gray);padding:2rem;grid-column:1/-1">Geen foto\'s in deze categorie.</p>';
+    grid.innerHTML = cat?.has_children
+      ? '<p style="color:var(--gray);padding:2rem;grid-column:1/-1">Foto\'s toevoegen kan via de <strong>Evenementen</strong> pagina.</p>'
+      : '<p style="color:var(--gray);padding:2rem;grid-column:1/-1">Geen foto\'s in deze categorie.</p>';
     return;
   }
 
