@@ -97,12 +97,11 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
 .home-layout { display: flex; flex-direction: column; gap: 1.5rem; }
 
 .events-spotlight {
-  display: flex; justify-content: center;
-  width: clamp(260px, 34%, 420px);
-  margin: 0 auto;
+  width: 100%;
 }
 .events-spotlight .cat-card {
   width: 100%;
+  aspect-ratio: 21/9;
 }
 
 .categories-grid {
@@ -344,7 +343,7 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
   .categories-section { padding: 2rem 0; }
   .categories-grid { grid-template-columns: 1fr; gap: 3px; }
   .categories-grid .cat-card { aspect-ratio: 4/3; }
-  .events-spotlight .cat-card { width: 100%; }
+  .events-spotlight .cat-card { aspect-ratio: 4/3; }
 
   .cat-card-overlay { align-items: center; justify-content: center; padding: 1.5rem; }
   .cat-card-name { font-size: 1.3rem; text-align: center; }
