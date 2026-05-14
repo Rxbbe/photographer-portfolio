@@ -472,9 +472,17 @@ async function initSettingsPage() {
     const file = profileInput.files[0];
     if (!file) return;
     try {
-      const urls = await directUpload([file]);
-      const result = await api('POST', '/api/admin/photos', { category_id: null, urls });
-      if (result?.[0]) toast(`Foto geüpload. URL: ${result[0].url}`);
+      const resized = await resizeImage(file);
+      const formData = new FormData();
+      formData.append('file', resized);
+      const res = await fetch('/api/admin/upload-profile', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload mislukt');
+      toast('Profielfoto opgeslagen');
     } catch (err) {
       toast('Upload mislukt: ' + err.message, true);
     }

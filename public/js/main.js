@@ -279,6 +279,12 @@ function initAbout() {
 
   if (title) title.textContent = siteSettings.about_title || 'Over Mij';
   if (text) text.textContent = siteSettings.about_text || '';
+
+  const profileImg = document.getElementById('about-profile-img');
+  if (profileImg && siteSettings.profile_photo_url) {
+    profileImg.src = siteSettings.profile_photo_url;
+  }
+
   if (quote) {
     if (siteSettings.about_quote) {
       quote.textContent = `"${siteSettings.about_quote}"`;

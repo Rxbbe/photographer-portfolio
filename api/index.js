@@ -86,6 +86,7 @@ async function initDB() {
     ['contact_location','België'],
     ['instagram_url',   ''],
     ['facebook_url',    ''],
+    ['profile_photo_url', ''],
   ]) {
     await sql`INSERT INTO settings (key,value) VALUES (${k},${v}) ON CONFLICT (key) DO NOTHING`;
   }
@@ -313,6 +314,32 @@ app.post('/api/admin/upload', auth, async (req, res, next) => {
       res.status(500).json({ error: 'Upload mislukt: ' + e.message });
     }
   });
+});
+
+// ─── Admin: profielfoto upload ────────────────────────────────────────────────
+app.post('/api/admin/upload-profile', auth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand' });
+  try {
+    let url;
+    if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
+      const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+      const blob = await put(`profile${ext}`, req.file.buffer, {
+        access: 'public',
+        contentType: req.file.mimetype || 'image/jpeg',
+        addRandomSuffix: false,
+      });
+      url = blob.url;
+    } else {
+      const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+      await fs.promises.writeFile(path.join(UPLOAD_DIR, `profile${ext}`), req.file.buffer);
+      url = `/uploads/profile${ext}`;
+    }
+    await sql`INSERT INTO settings (key,value) VALUES ('profile_photo_url',${url}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`;
+    res.json({ url });
+  } catch (e) {
+    console.error('profile upload:', e);
+    res.status(500).json({ error: 'Upload mislukt: ' + e.message });
+  }
 });
 
 // ─── Admin: photos ─────────────────────────────────────────────────────────────
