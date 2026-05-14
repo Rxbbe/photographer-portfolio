@@ -281,8 +281,10 @@ function initAbout() {
   if (text) text.textContent = siteSettings.about_text || '';
 
   const profileImg = document.getElementById('about-profile-img');
-  if (profileImg && siteSettings.profile_photo_url) {
+  const profileWrap = document.getElementById('about-image-wrap');
+  if (profileImg && profileWrap && siteSettings.profile_photo_url) {
     profileImg.src = siteSettings.profile_photo_url;
+    profileWrap.style.display = '';
   }
 
   if (quote) {
