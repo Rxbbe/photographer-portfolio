@@ -143,20 +143,29 @@ async function initGallery() {
     if (!grid) return;
 
     if (subcats.length > 0) {
-      grid.className = 'categories-grid';
-      grid.style.cssText = 'padding: 3rem 2rem; max-width: 1400px; margin: 0 auto;';
-      grid.innerHTML = subcats.map(c => `
-        <a href="/gallery.html?slug=${c.slug}" class="cat-card">
-          ${c.cover_url
-            ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
-            : `<div class="cat-placeholder">Geen foto's</div>`}
-          <div class="cat-card-overlay">
-            <div class="cat-card-name">${c.name}</div>
-            ${c.description ? `<div class="cat-card-desc">${c.description}</div>` : ''}
-            <div class="cat-card-count">${c.photo_count} foto${c.photo_count !== 1 ? "'s" : ''}</div>
-          </div>
-        </a>
-      `).join('');
+      const subcatPhotoArrays = await Promise.all(
+        subcats.map(sc => fetch(`/api/categories/${sc.slug}/photos`).then(r => r.json()).catch(() => []))
+      );
+
+      const allPhotos = [];
+      grid.className = 'event-sections';
+      grid.style.cssText = '';
+      grid.innerHTML = '';
+
+      // Foto's zonder subcategorie eerst
+      if (photos.length) {
+        grid.appendChild(buildSubcatSection(null, 'Heeft geen subcategorie', photos, allPhotos));
+      }
+
+      // Subcategorieën als banners
+      subcats.forEach((sc, i) => {
+        const scPhotos = subcatPhotoArrays[i];
+        if (!scPhotos.length) return;
+        grid.appendChild(buildSubcatSection(sc.banner_url || null, sc.name, scPhotos, allPhotos));
+      });
+
+      galleryPhotos = allPhotos;
+      if (allPhotos.length) initLightbox();
       return;
     }
 
@@ -172,6 +181,31 @@ async function initGallery() {
   } catch {
     if (grid) grid.innerHTML = '<div class="gallery-empty">Er ging iets mis. Probeer de pagina opnieuw te laden.</div>';
   }
+}
+
+// ── Subcategorie sectie (banner + fotogrid) ────────────────────────────────────
+function buildSubcatSection(bannerUrl, title, photos, allPhotosRef) {
+  const section = document.createElement('div');
+  section.className = 'event-section';
+
+  const banner = document.createElement('div');
+  banner.className = 'subcat-banner' + (bannerUrl ? '' : ' subcat-banner--none');
+  if (bannerUrl) banner.style.backgroundImage = `url('${bannerUrl}')`;
+
+  const titleEl = document.createElement('h2');
+  titleEl.className = 'subcat-banner-title';
+  titleEl.textContent = title;
+  banner.appendChild(titleEl);
+  section.appendChild(banner);
+
+  const photoGrid = document.createElement('div');
+  photoGrid.className = 'gallery-grid';
+  const offset = allPhotosRef.length;
+  photos.forEach(p => allPhotosRef.push(p));
+  renderGalleryGrid(photoGrid, photos, i => openLightbox(offset + i));
+  section.appendChild(photoGrid);
+
+  return section;
 }
 
 // ── Gallery grid renderer (chunked to avoid blocking the main thread) ─────────

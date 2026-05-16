@@ -311,6 +311,36 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
 .footer-social svg { width: 20px; height: 20px; fill: currentColor; }
 .footer-copy { color: var(--gray); font-size: 0.8rem; letter-spacing: 0.04em; }
 
+/* ── Event subcategorieën als banners ───────────────────────────────────── */
+.event-sections { width: 100%; }
+
+.event-section { margin-bottom: 4rem; }
+
+.subcat-banner {
+  position: relative; background-color: var(--light);
+  background-size: cover; background-position: center;
+  min-height: 260px; display: flex;
+  align-items: center; justify-content: center; overflow: hidden;
+}
+.subcat-banner[style*="background-image"]::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(0,0,0,0.28); z-index: 0;
+}
+.subcat-banner-title {
+  position: relative; z-index: 1;
+  font-family: var(--serif); font-size: clamp(1.8rem, 4vw, 3.5rem);
+  font-weight: 700; color: var(--white); text-align: center;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.55); padding: 1.5rem 2rem;
+}
+.subcat-banner--none .subcat-banner-title {
+  color: var(--black); text-shadow: none; font-size: clamp(1.3rem, 3vw, 2rem);
+}
+.event-section .gallery-grid { padding-top: 1.5rem; padding-bottom: 0; }
+
+@media (max-width: 768px) {
+  .subcat-banner { min-height: 180px; }
+}
+
 /* ── Loading skeleton ───────────────────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
