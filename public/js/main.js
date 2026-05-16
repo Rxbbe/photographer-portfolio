@@ -143,29 +143,46 @@ async function initGallery() {
     if (!grid) return;
 
     if (subcats.length > 0) {
-      const subcatPhotoArrays = await Promise.all(
-        subcats.map(sc => fetch(`/api/categories/${sc.slug}/photos`).then(r => r.json()).catch(() => []))
-      );
+      if (cat.parent_id) {
+        // Dit is een evenement (kind-categorie) — subcategorieën als banners tonen
+        const subcatPhotoArrays = await Promise.all(
+          subcats.map(sc => fetch(`/api/categories/${sc.slug}/photos`).then(r => r.json()).catch(() => []))
+        );
 
-      const allPhotos = [];
-      grid.className = 'event-sections';
-      grid.style.cssText = '';
-      grid.innerHTML = '';
+        const allPhotos = [];
+        grid.className = 'event-sections';
+        grid.style.cssText = '';
+        grid.innerHTML = '';
 
-      // Foto's zonder subcategorie eerst
-      if (photos.length) {
-        grid.appendChild(buildSubcatSection(null, 'Heeft geen subcategorie', photos, allPhotos));
+        if (photos.length) {
+          grid.appendChild(buildSubcatSection(null, 'Heeft geen subcategorie', photos, allPhotos));
+        }
+
+        subcats.forEach((sc, i) => {
+          const scPhotos = subcatPhotoArrays[i];
+          if (!scPhotos.length) return;
+          grid.appendChild(buildSubcatSection(sc.banner_url || null, sc.name, scPhotos, allPhotos));
+        });
+
+        galleryPhotos = allPhotos;
+        if (allPhotos.length) initLightbox();
+      } else {
+        // Top-niveau categorie (bv. Evenementen) — subcategorieën als klikbare kaartjes
+        grid.className = 'categories-grid';
+        grid.style.cssText = 'padding: 3rem 2rem; max-width: 1400px; margin: 0 auto;';
+        grid.innerHTML = subcats.map(c => `
+          <a href="/gallery.html?slug=${c.slug}" class="cat-card">
+            ${c.cover_url
+              ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
+              : `<div class="cat-placeholder">Geen foto's</div>`}
+            <div class="cat-card-overlay">
+              <div class="cat-card-name">${c.name}</div>
+              ${c.description ? `<div class="cat-card-desc">${c.description}</div>` : ''}
+              <div class="cat-card-count">${c.photo_count} foto${c.photo_count !== 1 ? "'s" : ''}</div>
+            </div>
+          </a>
+        `).join('');
       }
-
-      // Subcategorieën als banners
-      subcats.forEach((sc, i) => {
-        const scPhotos = subcatPhotoArrays[i];
-        if (!scPhotos.length) return;
-        grid.appendChild(buildSubcatSection(sc.banner_url || null, sc.name, scPhotos, allPhotos));
-      });
-
-      galleryPhotos = allPhotos;
-      if (allPhotos.length) initLightbox();
       return;
     }
 
