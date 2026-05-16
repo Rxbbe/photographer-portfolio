@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const postgres = require('postgres');
-const { del, put } = require('@vercel/blob');
+const { del, put, handleUpload } = require('@vercel/blob');
 const multer = require('multer');
 const sharp = require('sharp');
 const jwt = require('jsonwebtoken');
