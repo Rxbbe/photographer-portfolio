@@ -5,7 +5,8 @@
       "Bash(node --check server.js)",
       "Bash(node --check admin/js/admin.js)",
       "Bash(vercel env *)",
-      "Bash(npx vercel *)"
+      "Bash(npx vercel *)",
+      "Bash(git push *)"
     ]
   }
 }
