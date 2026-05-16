@@ -114,6 +114,7 @@
       <div class="photo-grid" id="photos-grid">
         <p style="color:var(--gray);padding:2rem;grid-column:1/-1">Selecteer een categorie om foto's te zien.</p>
       </div>
+      <div class="upload-progress" id="photos-upload-progress"></div>
     </div>
 
     <!-- Categories -->
@@ -195,6 +196,7 @@
               <p style="font-size:.82rem"><strong>Klik om profielfoto te uploaden</strong></p>
             </div>
             <input type="file" id="profile-input" accept="image/*" style="display:none">
+            <div class="upload-progress" id="profile-upload-progress"></div>
           </div>
         </div>
         <div style="margin-top:1.5rem">
@@ -335,6 +337,42 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline" id="private-modal-cancel">Annuleren</button>
+        <button type="submit" class="btn btn-primary">Opslaan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Subcategorie modal -->
+<div class="modal-overlay" id="subcat-modal">
+  <div class="modal">
+    <h3 id="subcat-modal-title">Subcategorie toevoegen</h3>
+    <form id="subcat-form">
+      <input type="hidden" name="id">
+      <div class="form-group">
+        <label>Naam *</label>
+        <input type="text" name="name" placeholder="bv. Artiest, Dag 1, Locatie" required>
+      </div>
+      <div class="form-group">
+        <label>Bannerfoto (optioneel)</label>
+        <div class="upload-zone" id="subcat-banner-zone" style="padding:1.5rem;min-height:80px">
+          <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+          <p style="font-size:.82rem"><strong>Klik om bannerfoto te uploaden</strong></p>
+        </div>
+        <input type="file" id="subcat-banner-input" accept="image/*" style="display:none">
+        <input type="hidden" name="banner_url" id="subcat-banner-url">
+        <div id="subcat-banner-preview-wrap" style="display:none;margin-top:.5rem;position:relative">
+          <img id="subcat-banner-preview" style="max-width:100%;border-radius:8px;max-height:120px;width:100%;object-fit:cover" alt="banner preview">
+          <button type="button" id="subcat-banner-remove" style="position:absolute;top:.3rem;right:.3rem;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center">&times;</button>
+        </div>
+        <div id="subcat-banner-progress"></div>
+      </div>
+      <div class="form-group">
+        <label>Volgorde</label>
+        <input type="number" name="sort_order" value="0">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="subcat-modal-cancel">Annuleren</button>
         <button type="submit" class="btn btn-primary">Opslaan</button>
       </div>
     </form>

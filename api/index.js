@@ -47,6 +47,7 @@ async function initDB() {
   )`;
   await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER`;
   await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS event_date TEXT DEFAULT ''`;
+  await sql`ALTER TABLE categories ADD COLUMN IF NOT EXISTS banner_url TEXT DEFAULT ''`;
 
   await sql`CREATE TABLE IF NOT EXISTS photos (
     id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id),
@@ -241,14 +242,14 @@ app.get('/api/admin/categories', auth, async (req, res) => {
 });
 
 app.post('/api/admin/categories', auth, async (req, res) => {
-  const { name, description, visible, parent_id, event_date } = req.body;
+  const { name, description, visible, parent_id, event_date, banner_url } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Naam vereist' });
   const slug = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   try {
     const [{ count }] = await sql`SELECT COUNT(*)::int as count FROM categories`;
     const [row] = await sql`
-      INSERT INTO categories (name,slug,description,sort_order,visible,parent_id,event_date)
-      VALUES (${name.trim()},${slug},${description||''},${count+1},${visible!==false?1:0},${parent_id||null},${event_date||''})
+      INSERT INTO categories (name,slug,description,sort_order,visible,parent_id,event_date,banner_url)
+      VALUES (${name.trim()},${slug},${description||''},${count+1},${visible!==false?1:0},${parent_id||null},${event_date||''},${banner_url||''})
       RETURNING id,slug`;
     res.json({ id: row.id, name: name.trim(), slug: row.slug });
   } catch (e) {
@@ -257,9 +258,9 @@ app.post('/api/admin/categories', auth, async (req, res) => {
 });
 
 app.put('/api/admin/categories/:id', auth, async (req, res) => {
-  const { name, description, sort_order, visible, parent_id, event_date } = req.body;
+  const { name, description, sort_order, visible, parent_id, event_date, banner_url } = req.body;
   try {
-    await sql`UPDATE categories SET name=${name},description=${description},sort_order=${sort_order},visible=${visible?1:0},parent_id=${parent_id||null},event_date=${event_date||''} WHERE id=${req.params.id}`;
+    await sql`UPDATE categories SET name=${name},description=${description},sort_order=${sort_order},visible=${visible?1:0},parent_id=${parent_id||null},event_date=${event_date||''},banner_url=${banner_url||''} WHERE id=${req.params.id}`;
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
