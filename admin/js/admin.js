@@ -26,8 +26,6 @@ async function withConcurrency(items, concurrency, fn) {
   return results;
 }
 
-const IS_VERCEL = !['localhost', '127.0.0.1'].includes(window.location.hostname);
-
 async function resizeImage(file, maxPx = 2500, quality = 0.88) {
   if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
   return new Promise(resolve => {
@@ -55,7 +53,7 @@ async function directUpload(files, onProgress) {
   let done = 0;
   const urls = await withConcurrency(Array.from(files), 4, async (file) => {
     const resized = await resizeImage(file);
-    const url = IS_VERCEL ? await uploadToBlob(resized) : await uploadLocal(resized);
+    const url = await uploadFile(resized);
     done++;
     if (onProgress) onProgress(done, files.length);
     return url;
@@ -63,37 +61,7 @@ async function directUpload(files, onProgress) {
   return urls;
 }
 
-async function uploadToBlob(file) {
-  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2)}${file.name.slice(file.name.lastIndexOf('.'))}`;
-
-  // Step 1: get client token from server
-  const tokenRes = await fetch('/api/admin/upload', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'blob.generate-client-token',
-      payload: { pathname: safeName, callbackUrl: `${location.origin}/api/admin/upload`, multipart: false },
-    }),
-  });
-  if (!tokenRes.ok) throw new Error('Token aanvraag mislukt');
-  const { clientToken } = await tokenRes.json();
-
-  // Step 2: upload directly to Vercel Blob
-  const uploadRes = await fetch(`https://vercel.com/api/blob/${encodeURIComponent(safeName)}`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${clientToken}`,
-      'x-api-version': '7',
-      'Content-Type': file.type || 'application/octet-stream',
-    },
-    body: file,
-  });
-  if (!uploadRes.ok) throw new Error('Blob upload mislukt');
-  const { url } = await uploadRes.json();
-  return url;
-}
-
-async function uploadLocal(file) {
+async function uploadFile(file) {
   const formData = new FormData();
   formData.append('file', file);
   const res = await fetch('/api/admin/upload', {
@@ -102,7 +70,7 @@ async function uploadLocal(file) {
     body: formData,
   });
   const data = await res.json();
-  if (data?.error) throw new Error(data.error);
+  if (!res.ok || data?.error) throw new Error(data?.error || 'Upload mislukt');
   return data.url;
 }
 
@@ -780,10 +748,8 @@ async function loadEventPhotos(eventId) {
       </div>`;
   }
 
-  for (const sc of subcats) {
-    const scPhotos = await api('GET', `/api/admin/photos?category_id=${sc.id}`);
-    html += subcatSectionHtml(sc, scPhotos, eventId);
-  }
+  const subcatPhotos = await Promise.all(subcats.map(sc => api('GET', `/api/admin/photos?category_id=${sc.id}`)));
+  subcats.forEach((sc, i) => { html += subcatSectionHtml(sc, subcatPhotos[i], eventId); });
 
   grid.innerHTML = html;
   bindEventPhotoActions(grid, eventId);

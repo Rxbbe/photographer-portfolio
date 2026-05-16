@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const postgres = require('postgres');
-const { del, put, handleUpload } = require('@vercel/blob');
+const { del, put } = require('@vercel/blob');
 const multer = require('multer');
 const sharp = require('sharp');
 const jwt = require('jsonwebtoken');
@@ -283,38 +283,24 @@ app.put('/api/admin/categories/:id/cover', auth, async (req, res) => {
 });
 
 // ─── Admin: foto upload ────────────────────────────────────────────────────────
-// On Vercel: client-side blob upload (browser → Vercel Blob directly, bypasses 4.5MB limit)
-// Local: multer file upload through server
-app.post('/api/admin/upload', auth, async (req, res, next) => {
-  if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
-    // Handle Vercel Blob client upload protocol
-    try {
-      const jsonResponse = await handleUpload({
-        body: req.body,
-        request: req,
-        onBeforeGenerateToken: async () => ({
-          allowedContentTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/avif'],
-          maximumSizeInBytes: 50 * 1024 * 1024,
-        }),
-        onUploadCompleted: async () => {},
+app.post('/api/admin/upload', auth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Geen bestand' });
+  try {
+    const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
+      const blob = await put(filename, req.file.buffer, {
+        access: 'public',
+        contentType: req.file.mimetype || 'image/jpeg',
       });
-      return res.json(jsonResponse);
-    } catch (e) {
-      return res.status(400).json({ error: e.message });
+      return res.json({ url: blob.url });
     }
+    await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), req.file.buffer);
+    res.json({ url: `/uploads/${filename}` });
+  } catch (e) {
+    console.error('upload:', e);
+    res.status(500).json({ error: 'Upload mislukt: ' + e.message });
   }
-  // Local: receive file via multer
-  upload.single('file')(req, res, async (err) => {
-    if (err || !req.file) return res.status(400).json({ error: 'Geen bestand' });
-    try {
-      const ext = path.extname(req.file.originalname).toLowerCase();
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-      await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), req.file.buffer);
-      res.json({ url: `/uploads/${filename}` });
-    } catch (e) {
-      res.status(500).json({ error: 'Upload mislukt: ' + e.message });
-    }
-  });
 });
 
 // ─── Admin: profielfoto upload ────────────────────────────────────────────────
