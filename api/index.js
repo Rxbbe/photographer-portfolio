@@ -179,8 +179,13 @@ app.get('/api/categories/:slug/subcategories', async (req, res) => {
     if (!cat) return res.status(404).json({ error: 'Niet gevonden' });
     const subcats = await sql`
       SELECT c.*,
-        COALESCE(cp.url, (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1)) AS cover_url,
-        (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) AS photo_count
+        COALESCE(
+          cp.url,
+          (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+          (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+        ) AS cover_url,
+        (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
+        (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
       FROM categories c LEFT JOIN photos cp ON c.cover_photo_id = cp.id
       WHERE c.parent_id = ${cat.id} AND c.visible = 1
       ORDER BY c.sort_order, c.name`;
