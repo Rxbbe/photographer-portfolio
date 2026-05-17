@@ -120,13 +120,11 @@ async function initGallery() {
   const grid = document.getElementById('gallery-grid');
 
   try {
-    const [cat, subcats, photos] = await Promise.all([
-      fetch(`/api/categories/${slug}`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`/api/categories/${slug}/subcategories`).then(r => r.json()).catch(() => []),
-      fetch(`/api/categories/${slug}/photos`).then(r => r.json()).catch(() => []),
-    ]);
+    const data = await fetch(`/api/gallery/${slug}`).then(r => r.ok ? r.json() : null).catch(() => null);
+    if (!data?.cat) { window.location.href = '/'; return; }
 
-    if (!cat) { window.location.href = '/'; return; }
+    const { cat, subcats, photos: allPhotos } = data;
+    const directPhotos = allPhotos.filter(p => p.category_id === cat.id);
 
     document.title = `${cat.name} — ${siteSettings.site_name || 'Fotograaf'}`;
     const h1 = document.getElementById('gallery-title');
@@ -144,30 +142,26 @@ async function initGallery() {
 
     if (subcats.length > 0) {
       if (cat.parent_id) {
-        // Dit is een evenement (kind-categorie) — subcategorieën als banners tonen
-        const subcatPhotoArrays = await Promise.all(
-          subcats.map(sc => fetch(`/api/categories/${sc.slug}/photos`).then(r => r.json()).catch(() => []))
-        );
-
-        const allPhotos = [];
+        // Evenement met subcategorieën — banners tonen
+        const allPhotosRef = [];
         grid.className = 'event-sections';
         grid.style.cssText = '';
         grid.innerHTML = '';
 
-        if (photos.length) {
-          grid.appendChild(buildSubcatSection(null, 'Heeft geen subcategorie', photos, allPhotos));
+        if (directPhotos.length) {
+          grid.appendChild(buildSubcatSection(null, 'Heeft geen subcategorie', directPhotos, allPhotosRef));
         }
 
-        subcats.forEach((sc, i) => {
-          const scPhotos = subcatPhotoArrays[i];
+        subcats.forEach(sc => {
+          const scPhotos = allPhotos.filter(p => p.category_id === sc.id);
           if (!scPhotos.length) return;
-          grid.appendChild(buildSubcatSection(sc.banner_url || null, sc.name, scPhotos, allPhotos, sc.banner_position || '50%'));
+          grid.appendChild(buildSubcatSection(sc.banner_url || null, sc.name, scPhotos, allPhotosRef, sc.banner_position || '50%'));
         });
 
-        galleryPhotos = allPhotos;
-        if (allPhotos.length) initLightbox();
+        galleryPhotos = allPhotosRef;
+        if (allPhotosRef.length) initLightbox();
       } else {
-        // Top-niveau categorie (bv. Evenementen) — subcategorieën als klikbare kaartjes
+        // Top-niveau categorie (bv. Evenementen) — klikbare kaartjes
         grid.className = 'categories-grid';
         grid.style.cssText = 'padding: 3rem 2rem; max-width: 1400px; margin: 0 auto;';
         grid.innerHTML = subcats.map(c => `
@@ -186,14 +180,14 @@ async function initGallery() {
       return;
     }
 
-    galleryPhotos = photos;
+    galleryPhotos = directPhotos;
 
-    if (!photos.length) {
+    if (!directPhotos.length) {
       grid.innerHTML = '<div class="gallery-empty">Nog geen foto\'s in deze categorie.</div>';
       return;
     }
 
-    renderGalleryGrid(grid, photos, openLightbox);
+    renderGalleryGrid(grid, directPhotos, openLightbox);
     initLightbox();
   } catch {
     if (grid) grid.innerHTML = '<div class="gallery-empty">Er ging iets mis. Probeer de pagina opnieuw te laden.</div>';

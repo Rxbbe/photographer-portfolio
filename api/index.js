@@ -201,6 +201,37 @@ app.get('/api/categories/:slug/photos', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
+// Single-request endpoint that returns everything needed for a gallery page
+app.get('/api/gallery/:slug', async (req, res) => {
+  try {
+    const [cat] = await sql`
+      SELECT c.*, pc.slug AS parent_slug, pc.name AS parent_name
+      FROM categories c LEFT JOIN categories pc ON c.parent_id = pc.id
+      WHERE c.slug = ${req.params.slug} AND c.visible = 1`;
+    if (!cat) return res.status(404).json({ error: 'Niet gevonden' });
+
+    const [subcats, photos] = await Promise.all([
+      sql`SELECT c.*,
+          COALESCE(
+            cp.url,
+            (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+            (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+          ) AS cover_url,
+          (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
+          (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
+        FROM categories c LEFT JOIN photos cp ON c.cover_photo_id = cp.id
+        WHERE c.parent_id = ${cat.id} AND c.visible = 1
+        ORDER BY c.sort_order, c.name`,
+      sql`SELECT * FROM photos
+          WHERE category_id = ${cat.id}
+             OR category_id IN (SELECT id FROM categories WHERE parent_id = ${cat.id})
+          ORDER BY category_id, sort_order, created_at`,
+    ]);
+
+    res.json({ cat, subcats, photos });
+  } catch (e) { console.error('GET /api/gallery:', e); res.status(500).json({ error: 'DB fout' }); }
+});
+
 app.get('/api/settings', async (req, res) => {
   try {
     const rows = await sql`SELECT * FROM settings`;
