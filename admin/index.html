@@ -361,9 +361,17 @@
         </div>
         <input type="file" id="subcat-banner-input" accept="image/*" style="display:none">
         <input type="hidden" name="banner_url" id="subcat-banner-url">
-        <div id="subcat-banner-preview-wrap" style="display:none;margin-top:.5rem;position:relative">
-          <img id="subcat-banner-preview" style="max-width:100%;border-radius:8px;max-height:120px;width:100%;object-fit:cover" alt="banner preview">
-          <button type="button" id="subcat-banner-remove" style="position:absolute;top:.3rem;right:.3rem;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center">&times;</button>
+        <div id="subcat-banner-preview-wrap" style="display:none;margin-top:.75rem">
+          <div id="subcat-banner-preview-div" style="height:130px;background-size:cover;background-position:center 50%;border-radius:8px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background-color:#e4e4e7">
+            <div style="position:absolute;inset:0;background:rgba(0,0,0,.28)"></div>
+            <span id="subcat-banner-preview-name" style="position:relative;z-index:1;color:#fff;font-weight:700;font-size:.95rem;text-shadow:0 2px 8px rgba(0,0,0,.6);text-align:center;padding:.5rem 1rem"></span>
+          </div>
+          <div style="margin-top:.5rem;display:flex;align-items:center;gap:.75rem">
+            <label style="font-size:.8rem;color:var(--gray);white-space:nowrap">Positie</label>
+            <input type="range" id="subcat-banner-position" min="0" max="100" value="50" style="flex:1">
+            <span id="subcat-banner-pos-label" style="font-size:.8rem;color:var(--gray);min-width:35px;text-align:right">50%</span>
+          </div>
+          <button type="button" id="subcat-banner-remove" style="margin-top:.35rem;font-size:.78rem;color:var(--gray);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline">Bannerfoto verwijderen</button>
         </div>
         <div id="subcat-banner-progress"></div>
       </div>

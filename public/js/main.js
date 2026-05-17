@@ -161,7 +161,7 @@ async function initGallery() {
         subcats.forEach((sc, i) => {
           const scPhotos = subcatPhotoArrays[i];
           if (!scPhotos.length) return;
-          grid.appendChild(buildSubcatSection(sc.banner_url || null, sc.name, scPhotos, allPhotos));
+          grid.appendChild(buildSubcatSection(sc.banner_url || null, sc.name, scPhotos, allPhotos, sc.banner_position || '50%'));
         });
 
         galleryPhotos = allPhotos;
@@ -201,13 +201,16 @@ async function initGallery() {
 }
 
 // ── Subcategorie sectie (banner + fotogrid) ────────────────────────────────────
-function buildSubcatSection(bannerUrl, title, photos, allPhotosRef) {
+function buildSubcatSection(bannerUrl, title, photos, allPhotosRef, bannerPosition = '50%') {
   const section = document.createElement('div');
   section.className = 'event-section';
 
   const banner = document.createElement('div');
   banner.className = 'subcat-banner' + (bannerUrl ? '' : ' subcat-banner--none');
-  if (bannerUrl) banner.style.backgroundImage = `url('${bannerUrl}')`;
+  if (bannerUrl) {
+    banner.style.backgroundImage = `url('${bannerUrl}')`;
+    banner.style.backgroundPositionY = bannerPosition;
+  }
 
   const titleEl = document.createElement('h2');
   titleEl.className = 'subcat-banner-title';

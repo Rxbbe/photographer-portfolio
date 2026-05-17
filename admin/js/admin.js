@@ -674,12 +674,16 @@ function photoThumbHtml(p, coverPhotoId, eventId) {
 }
 
 function subcatSectionHtml(sc, photos, eventId) {
-  const bannerStyle = sc.banner_url ? `background-image:url('${escHtml(sc.banner_url)}')` : '';
+  const bannerPos = sc.banner_position || '50%';
+  const bannerStyle = sc.banner_url
+    ? `background-image:url('${escHtml(sc.banner_url)}');background-position-y:${bannerPos}`
+    : '';
   const photoHtml = photos?.length
     ? photos.map(p => `
         <div class="photo-thumb" data-id="${p.id}">
           <img src="${p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
           <div class="photo-thumb-actions">
+            <button class="btn-cover-ev" data-id="${p.id}" data-event="${eventId}">Als cover</button>
             <button class="btn-del-ev-photo" data-id="${p.id}" data-event="${eventId}">Verwijderen</button>
           </div>
         </div>`).join('')
@@ -882,6 +886,14 @@ function initSubcatModal() {
 
   const bannerZone = document.getElementById('subcat-banner-zone');
   const bannerInput = document.getElementById('subcat-banner-input');
+  const posSlider = document.getElementById('subcat-banner-position');
+  const posLabel = document.getElementById('subcat-banner-pos-label');
+
+  posSlider.addEventListener('input', () => {
+    posLabel.textContent = posSlider.value + '%';
+    document.getElementById('subcat-banner-preview-div').style.backgroundPositionY = posSlider.value + '%';
+  });
+
   bannerZone.addEventListener('click', () => bannerInput.click());
   bannerInput.addEventListener('change', async () => {
     const file = bannerInput.files[0];
@@ -894,7 +906,11 @@ function initSubcatModal() {
         if (bar) bar.style.width = Math.round(done / total * 100) + '%';
       });
       document.getElementById('subcat-banner-url').value = urls[0];
-      document.getElementById('subcat-banner-preview').src = urls[0];
+      const previewDiv = document.getElementById('subcat-banner-preview-div');
+      previewDiv.style.backgroundImage = `url('${urls[0]}')`;
+      previewDiv.style.backgroundPositionY = posSlider.value + '%';
+      document.getElementById('subcat-banner-preview-name').textContent =
+        document.querySelector('#subcat-form [name=name]').value || '';
       document.getElementById('subcat-banner-preview-wrap').style.display = '';
       progressEl.innerHTML = '';
       toast('Banner geüpload');
@@ -906,7 +922,7 @@ function initSubcatModal() {
   });
   document.getElementById('subcat-banner-remove').addEventListener('click', () => {
     document.getElementById('subcat-banner-url').value = '';
-    document.getElementById('subcat-banner-preview').src = '';
+    document.getElementById('subcat-banner-preview-div').style.backgroundImage = '';
     document.getElementById('subcat-banner-preview-wrap').style.display = 'none';
   });
 }
@@ -919,14 +935,23 @@ function openSubcatModal(eventId, subcat = null) {
   document.getElementById('subcat-banner-preview-wrap').style.display = 'none';
   document.getElementById('subcat-banner-url').value = '';
   document.getElementById('subcat-banner-progress').innerHTML = '';
+  document.getElementById('subcat-banner-preview-div').style.backgroundImage = '';
+  document.getElementById('subcat-banner-preview-div').style.backgroundPositionY = '50%';
+  document.getElementById('subcat-banner-position').value = 50;
+  document.getElementById('subcat-banner-pos-label').textContent = '50%';
 
   if (subcat) {
     form.elements.id.value = subcat.id;
     form.elements.name.value = subcat.name;
     form.elements.sort_order.value = subcat.sort_order;
     if (subcat.banner_url) {
+      const pos = subcat.banner_position ? parseInt(subcat.banner_position) : 50;
       document.getElementById('subcat-banner-url').value = subcat.banner_url;
-      document.getElementById('subcat-banner-preview').src = subcat.banner_url;
+      document.getElementById('subcat-banner-preview-div').style.backgroundImage = `url('${subcat.banner_url}')`;
+      document.getElementById('subcat-banner-preview-div').style.backgroundPositionY = pos + '%';
+      document.getElementById('subcat-banner-preview-name').textContent = subcat.name || '';
+      document.getElementById('subcat-banner-position').value = pos;
+      document.getElementById('subcat-banner-pos-label').textContent = pos + '%';
       document.getElementById('subcat-banner-preview-wrap').style.display = '';
     }
   }
@@ -951,6 +976,7 @@ async function saveSubcat(e) {
     parent_id: currentSubcatEventId,
     event_date: '',
     banner_url: document.getElementById('subcat-banner-url').value,
+    banner_position: document.getElementById('subcat-banner-position').value + '%',
   };
 
   if (id) {
