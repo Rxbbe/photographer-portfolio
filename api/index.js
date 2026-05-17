@@ -109,8 +109,8 @@ let dbReady = null;
 app.use(async (req, res, next) => {
   if (!dbReady) dbReady = initDB().catch(e => { dbReady = null; throw e; });
   try { await dbReady; next(); } catch (e) {
-    console.error('DB init:', e);
-    res.status(500).json({ error: 'Database niet beschikbaar' });
+    console.error('DB init error:', e.message, e.stack);
+    res.status(500).json({ error: 'Database niet beschikbaar: ' + e.message });
   }
 });
 
@@ -159,7 +159,7 @@ app.get('/api/categories', async (req, res) => {
       WHERE c.visible = 1 AND c.parent_id IS NULL
       ORDER BY c.sort_order, c.name`;
     res.json(cats);
-  } catch (e) { res.status(500).json({ error: 'DB fout' }); }
+  } catch (e) { console.error('GET /api/categories:', e); res.status(500).json({ error: e.message || 'DB fout' }); }
 });
 
 app.get('/api/categories/:slug', async (req, res) => {
