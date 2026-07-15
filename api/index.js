@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const postgres = require('postgres');
 const { del, put } = require('@vercel/blob');
 const multer = require('multer');
@@ -11,13 +12,46 @@ const fs = require('fs');
 
 const app = express();
 const IS_VERCEL = !!process.env.VERCEL;
+if (IS_VERCEL) app.set('trust proxy', 1);
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
-const ADMIN_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123', 10);
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET ontbreekt. Zet een sterke, geheime waarde in de environment variables (lokaal in .env, in productie in de Vercel project settings).');
+}
+if (!process.env.ADMIN_PASSWORD_HASH && !process.env.ADMIN_PASSWORD) {
+  throw new Error('ADMIN_PASSWORD_HASH of ADMIN_PASSWORD ontbreekt. Zet er een in de environment variables (lokaal in .env, in productie in de Vercel project settings).');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const ADMIN_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10);
 
 const sql = postgres(process.env.DATABASE_URL, { max: 1, idle_timeout: 20, connect_timeout: 10, ssl: 'require' });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// ─── Rate limiting ─────────────────────────────────────────────────────────────
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Te veel inlogpogingen. Probeer het later opnieuw.' },
+});
+
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Te veel berichten verstuurd. Probeer het later opnieuw.' },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Te veel verzoeken. Probeer het later opnieuw.' },
+});
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const ADMIN_DIR  = path.join(__dirname, '..', 'admin');
@@ -115,6 +149,7 @@ app.use(async (req, res, next) => {
 });
 
 app.use(express.json());
+app.use('/api', apiLimiter);
 if (!IS_VERCEL) app.use('/uploads', express.static(UPLOAD_DIR));
 app.use(express.static(PUBLIC_DIR));
 app.use('/admin', express.static(ADMIN_DIR));
@@ -240,7 +275,7 @@ app.get('/api/settings', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
-app.post('/api/contact', async (req, res) => {
+app.post('/api/contact', contactLimiter, async (req, res) => {
   const { name, email, phone, message } = req.body;
   if (!name?.trim() || !email?.trim() || !message?.trim())
     return res.status(400).json({ error: 'Naam, e-mail en bericht zijn verplicht' });
@@ -251,7 +286,7 @@ app.post('/api/contact', async (req, res) => {
 });
 
 // ─── Admin login ───────────────────────────────────────────────────────────────
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', loginLimiter, (req, res) => {
   if (!bcrypt.compareSync(req.body.password || '', ADMIN_HASH))
     return res.status(401).json({ error: 'Verkeerd wachtwoord' });
   res.json({ token: jwt.sign({ admin: true }, JWT_SECRET, { expiresIn: '24h' }) });
@@ -529,7 +564,7 @@ app.delete('/api/admin/private-photos/:id', auth, async (req, res) => {
 });
 
 // ─── Privé galerij (klant) ────────────────────────────────────────────────────
-app.post('/api/private/login', async (req, res) => {
+app.post('/api/private/login', loginLimiter, async (req, res) => {
   const { password } = req.body;
   if (!password?.trim()) return res.status(400).json({ error: 'Wachtwoord vereist' });
   try {
