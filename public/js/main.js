@@ -15,6 +15,7 @@ async function init() {
   else if (page === 'gallery') initGallery();
   else if (page === 'about') initAbout();
   else if (page === 'contact') initContact();
+  else if (page === 'privacy') initPrivacy();
 }
 
 // ── Global settings ───────────────────────────────────────────────────────────
@@ -408,6 +409,22 @@ function initContact() {
       btn.textContent = 'Versturen';
     }
   });
+}
+
+// ── Privacy page ──────────────────────────────────────────────────────────────
+function initPrivacy() {
+  document.title = `Privacyverklaring — ${siteSettings.site_name || 'Fotograaf'}`;
+
+  document.querySelectorAll('#legal-site-name, #legal-owner-name').forEach(el => {
+    if (siteSettings.site_name) el.textContent = siteSettings.site_name;
+  });
+
+  if (siteSettings.contact_email) {
+    document.querySelectorAll('#legal-owner-email, #legal-owner-email-2').forEach(el => {
+      el.href = `mailto:${siteSettings.contact_email}`;
+      el.textContent = siteSettings.contact_email;
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

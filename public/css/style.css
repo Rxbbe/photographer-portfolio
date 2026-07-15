@@ -300,6 +300,19 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
 }
 .contact-page-header h1 { font-family: var(--serif); font-size: clamp(2rem, 5vw, 3.5rem); }
 
+/* ── Legal page (privacyverklaring) ────────────────────────────────────── */
+.legal-page-header {
+  background: var(--light); padding: 6rem 2rem 3rem; text-align: center;
+}
+.legal-page-header h1 { font-family: var(--serif); font-size: clamp(2rem, 5vw, 3.5rem); }
+.legal-section { max-width: 760px; margin: 0 auto; padding: 4rem 2rem 6rem; color: #333; line-height: 1.8; }
+.legal-updated { color: var(--gray); font-size: 0.85rem; margin-bottom: 2rem; }
+.legal-section h2 { font-family: var(--serif); font-size: 1.4rem; margin: 2.5rem 0 1rem; }
+.legal-section p { margin-bottom: 1rem; }
+.legal-section ul { margin: 0 0 1rem 1.25rem; }
+.legal-section li { margin-bottom: 0.5rem; }
+.legal-section a { text-decoration: underline; }
+
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 .site-footer {
   border-top: 1px solid var(--border); padding: 3rem 2rem;
@@ -310,6 +323,8 @@ button { cursor: pointer; border: none; background: none; font-family: var(--san
 .footer-social a:hover { color: var(--black); }
 .footer-social svg { width: 20px; height: 20px; fill: currentColor; }
 .footer-copy { color: var(--gray); font-size: 0.8rem; letter-spacing: 0.04em; }
+.footer-legal-link { display: block; margin-top: 0.75rem; color: var(--gray); font-size: 0.78rem; text-decoration: underline; }
+.footer-legal-link:hover { color: var(--black); }
 
 /* ── Event subcategorieën als banners ───────────────────────────────────── */
 .event-sections { width: 100%; }
