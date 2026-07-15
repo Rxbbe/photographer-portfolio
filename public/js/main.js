@@ -142,41 +142,43 @@ async function initGallery() {
     if (!grid) return;
 
     if (subcats.length > 0) {
+      // Subcategorieën — altijd als klikbare mappen tonen (net als de evenementen zelf)
+      grid.className = cat.parent_id ? 'event-sections' : 'categories-grid';
+      grid.style.cssText = cat.parent_id ? '' : 'padding: 3rem 2rem; max-width: 1400px; margin: 0 auto;';
+      grid.innerHTML = '';
+
+      const catCard = c => `
+        <a href="/gallery.html?slug=${c.slug}" class="cat-card">
+          ${c.cover_url
+            ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
+            : `<div class="cat-placeholder">Geen foto's</div>`}
+          <div class="cat-card-overlay">
+            <div class="cat-card-name">${c.name}</div>
+            ${c.description ? `<div class="cat-card-desc">${c.description}</div>` : ''}
+            <div class="cat-card-count">${c.photo_count} foto${c.photo_count !== 1 ? "'s" : ''}</div>
+          </div>
+        </a>`;
+
       if (cat.parent_id) {
-        // Evenement met subcategorieën — banners tonen
-        const allPhotosRef = [];
-        grid.className = 'event-sections';
-        grid.style.cssText = '';
-        grid.innerHTML = '';
+        // Evenement met subcategorieën — subcategorieën als mappen, losse foto's als grid eronder
+        const folderGrid = document.createElement('div');
+        folderGrid.className = 'categories-grid';
+        folderGrid.style.cssText = 'padding: 3rem 2rem 1rem; max-width: 1400px; margin: 0 auto;';
+        folderGrid.innerHTML = subcats.map(catCard).join('');
+        grid.appendChild(folderGrid);
 
         if (directPhotos.length) {
-          grid.appendChild(buildSubcatSection(null, 'Heeft geen subcategorie', directPhotos, allPhotosRef));
+          const photoGrid = document.createElement('div');
+          photoGrid.className = 'gallery-grid';
+          renderGalleryGrid(photoGrid, directPhotos, openLightbox);
+          grid.appendChild(photoGrid);
         }
 
-        subcats.forEach(sc => {
-          const scPhotos = allPhotos.filter(p => p.category_id === sc.id);
-          if (!scPhotos.length) return;
-          grid.appendChild(buildSubcatSection(sc.banner_url || null, sc.name, scPhotos, allPhotosRef, sc.banner_position || '50%'));
-        });
-
-        galleryPhotos = allPhotosRef;
-        if (allPhotosRef.length) initLightbox();
+        galleryPhotos = directPhotos;
+        if (directPhotos.length) initLightbox();
       } else {
         // Top-niveau categorie (bv. Evenementen) — klikbare kaartjes
-        grid.className = 'categories-grid';
-        grid.style.cssText = 'padding: 3rem 2rem; max-width: 1400px; margin: 0 auto;';
-        grid.innerHTML = subcats.map(c => `
-          <a href="/gallery.html?slug=${c.slug}" class="cat-card">
-            ${c.cover_url
-              ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
-              : `<div class="cat-placeholder">Geen foto's</div>`}
-            <div class="cat-card-overlay">
-              <div class="cat-card-name">${c.name}</div>
-              ${c.description ? `<div class="cat-card-desc">${c.description}</div>` : ''}
-              <div class="cat-card-count">${c.photo_count} foto${c.photo_count !== 1 ? "'s" : ''}</div>
-            </div>
-          </a>
-        `).join('');
+        grid.innerHTML = subcats.map(catCard).join('');
       }
       return;
     }
@@ -193,34 +195,6 @@ async function initGallery() {
   } catch {
     if (grid) grid.innerHTML = '<div class="gallery-empty">Er ging iets mis. Probeer de pagina opnieuw te laden.</div>';
   }
-}
-
-// ── Subcategorie sectie (banner + fotogrid) ────────────────────────────────────
-function buildSubcatSection(bannerUrl, title, photos, allPhotosRef, bannerPosition = '50%') {
-  const section = document.createElement('div');
-  section.className = 'event-section';
-
-  const banner = document.createElement('div');
-  banner.className = 'subcat-banner' + (bannerUrl ? '' : ' subcat-banner--none');
-  if (bannerUrl) {
-    banner.style.backgroundImage = `url('${bannerUrl}')`;
-    banner.style.backgroundPositionY = bannerPosition;
-  }
-
-  const titleEl = document.createElement('h2');
-  titleEl.className = 'subcat-banner-title';
-  titleEl.textContent = title;
-  banner.appendChild(titleEl);
-  section.appendChild(banner);
-
-  const photoGrid = document.createElement('div');
-  photoGrid.className = 'gallery-grid';
-  const offset = allPhotosRef.length;
-  photos.forEach(p => allPhotosRef.push(p));
-  renderGalleryGrid(photoGrid, photos, i => openLightbox(offset + i));
-  section.appendChild(photoGrid);
-
-  return section;
 }
 
 // ── Gallery grid renderer (chunked to avoid blocking the main thread) ─────────
