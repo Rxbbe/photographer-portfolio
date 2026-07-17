@@ -584,6 +584,12 @@ app.get('/api/private/photos', privateAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
 });
 
+// ─── 404 fallback ──────────────────────────────────────────────────────────────
+app.use((req, res) => {
+  if (req.path.startsWith('/api')) return res.status(404).json({ error: 'Niet gevonden' });
+  res.status(404).sendFile(path.join(PUBLIC_DIR, '404.html'));
+});
+
 // ─── Export (Vercel) + lokale start ───────────────────────────────────────────
 module.exports = app;
 
