@@ -214,7 +214,7 @@ function renderGalleryGrid(grid, photos, onOpen) {
       item.dataset.index = i;
 
       const img = document.createElement('img');
-      img.src = p.url;
+      img.src = p.thumb_url || p.url;
       img.alt = p.title || '';
       img.loading = i < 8 ? 'eager' : 'lazy';
       img.decoding = 'async';

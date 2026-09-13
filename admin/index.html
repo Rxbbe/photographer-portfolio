@@ -203,6 +203,18 @@
           <button type="submit" class="btn btn-primary">Instellingen opslaan</button>
         </div>
       </form>
+
+      <div class="card" style="margin-top:1.5rem">
+        <h3 style="font-size:.9rem;font-weight:600;margin-bottom:.6rem">Opslag optimaliseren</h3>
+        <p style="color:var(--gray);font-size:.82rem;margin-bottom:1rem">
+          Comprimeert bestaande foto's die vóór deze update zijn geüpload naar een kleiner formaat en maakt er
+          thumbnails van, zodat de website minder blob-opslag gebruikt en sneller laadt. Nieuwe uploads worden
+          voortaan automatisch geoptimaliseerd. Dit kan bij veel foto's een tijdje duren — laat de pagina open
+          staan tot "Klaar!" verschijnt.
+        </p>
+        <button type="button" class="btn btn-outline" id="optimize-storage-btn">Start optimalisatie</button>
+        <div id="optimize-storage-progress" style="margin-top:1rem;font-size:.82rem;color:var(--gray)"></div>
+      </div>
     </div>
 
     <!-- Evenementen -->

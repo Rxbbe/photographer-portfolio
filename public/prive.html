@@ -299,7 +299,7 @@
           item.className = 'gallery-item';
           item.dataset.index = i;
           const img = document.createElement('img');
-          img.src = p.url; img.alt = ''; img.loading = i < 8 ? 'eager' : 'lazy'; img.decoding = 'async';
+          img.src = p.thumb_url || p.url; img.alt = ''; img.loading = i < 8 ? 'eager' : 'lazy'; img.decoding = 'async';
           const overlay = document.createElement('div');
           overlay.className = 'gallery-item-overlay';
           overlay.innerHTML = OVERLAY;

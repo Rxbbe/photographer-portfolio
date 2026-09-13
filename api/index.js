@@ -71,6 +71,18 @@ async function deleteFile(photo) {
   }
 }
 
+// ─── Image processing (resize + compress → veel minder Blob-opslag & sneller laden) ─
+// Genereert een gecomprimeerde "main" versie (voor lightbox/volledig scherm) en een
+// kleine "thumb" versie (voor gallery-grids en kaartjes) als WebP.
+async function processImage(buffer) {
+  const img = sharp(buffer, { failOn: 'none' }).rotate(); // rotate() = auto-oriënteren o.b.v. EXIF
+  const [mainBuffer, thumbBuffer] = await Promise.all([
+    img.clone().resize({ width: 2400, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
+    img.clone().resize({ width: 900, withoutEnlargement: true }).webp({ quality: 70 }).toBuffer(),
+  ]);
+  return { mainBuffer, thumbBuffer, contentType: 'image/webp', ext: '.webp' };
+}
+
 // ─── DB init ───────────────────────────────────────────────────────────────────
 async function initDB() {
   await sql`CREATE TABLE IF NOT EXISTS categories (
@@ -90,6 +102,7 @@ async function initDB() {
     title TEXT DEFAULT '', description TEXT DEFAULT '',
     sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE photos ADD COLUMN IF NOT EXISTS thumb_url TEXT DEFAULT ''`;
 
   await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')`;
 
@@ -109,6 +122,7 @@ async function initDB() {
     filename TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
     sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE private_photos ADD COLUMN IF NOT EXISTS thumb_url TEXT DEFAULT ''`;
 
   for (const [k, v] of [
     ['site_name',       'Arnoud Bex'],
@@ -183,9 +197,9 @@ app.get('/api/categories', async (req, res) => {
     const cats = await sql`
       SELECT c.*,
         COALESCE(
-          cp.url,
-          (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
-          (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+          NULLIF(cp.thumb_url,''), cp.url,
+          (SELECT COALESCE(NULLIF(thumb_url,''),url) FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+          (SELECT COALESCE(NULLIF(thumb_url,''),url) FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
         ) AS cover_url,
         (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
         (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
@@ -215,9 +229,9 @@ app.get('/api/categories/:slug/subcategories', async (req, res) => {
     const subcats = await sql`
       SELECT c.*,
         COALESCE(
-          cp.url,
-          (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
-          (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+          NULLIF(cp.thumb_url,''), cp.url,
+          (SELECT COALESCE(NULLIF(thumb_url,''),url) FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+          (SELECT COALESCE(NULLIF(thumb_url,''),url) FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
         ) AS cover_url,
         (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
         (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
@@ -248,9 +262,9 @@ app.get('/api/gallery/:slug', async (req, res) => {
     const [subcats, photos] = await Promise.all([
       sql`SELECT c.*,
           COALESCE(
-            cp.url,
-            (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
-            (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+            NULLIF(cp.thumb_url,''), cp.url,
+            (SELECT COALESCE(NULLIF(thumb_url,''),url) FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+            (SELECT COALESCE(NULLIF(thumb_url,''),url) FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
           ) AS cover_url,
           (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
           (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
@@ -299,10 +313,10 @@ app.get('/api/admin/categories', auth, async (req, res) => {
     if (parent_id !== undefined) {
       res.json(await sql`
         SELECT c.*,
-          COALESCE(cp.url,(SELECT url FROM photos WHERE category_id=c.id ORDER BY sort_order,created_at LIMIT 1)) AS cover_url,
+          COALESCE(NULLIF(cp.thumb_url,''),cp.url,(SELECT COALESCE(NULLIF(thumb_url,''),url) FROM photos WHERE category_id=c.id ORDER BY sort_order,created_at LIMIT 1)) AS cover_url,
           COUNT(p.id)::int AS photo_count
         FROM categories c LEFT JOIN photos cp ON c.cover_photo_id=cp.id LEFT JOIN photos p ON p.category_id=c.id
-        WHERE c.parent_id=${parent_id} GROUP BY c.id,cp.url ORDER BY c.sort_order,c.name`);
+        WHERE c.parent_id=${parent_id} GROUP BY c.id,cp.url,cp.thumb_url ORDER BY c.sort_order,c.name`);
     } else {
       res.json(await sql`
         SELECT c.*, COUNT(p.id)::int AS photo_count,
@@ -358,17 +372,38 @@ app.put('/api/admin/categories/:id/cover', auth, async (req, res) => {
 app.post('/api/admin/upload', auth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand' });
   try {
-    const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(filename, req.file.buffer, {
-        access: 'public',
-        contentType: req.file.mimetype || 'image/jpeg',
-      });
-      return res.json({ url: blob.url });
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let mainBuffer = req.file.buffer;
+    let thumbBuffer = null;
+    let contentType = req.file.mimetype || 'image/jpeg';
+    let ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+    try {
+      const processed = await processImage(req.file.buffer);
+      mainBuffer = processed.mainBuffer;
+      thumbBuffer = processed.thumbBuffer;
+      contentType = processed.contentType;
+      ext = processed.ext;
+    } catch (e) {
+      console.error('image processing failed, uploading original:', e.message);
     }
-    await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), req.file.buffer);
-    res.json({ url: `/uploads/${filename}` });
+    const filename = `${id}${ext}`;
+    if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
+      const blob = await put(filename, mainBuffer, { access: 'public', contentType });
+      let thumbUrl = '';
+      if (thumbBuffer) {
+        const thumbBlob = await put(`${id}-thumb.webp`, thumbBuffer, { access: 'public', contentType: 'image/webp' });
+        thumbUrl = thumbBlob.url;
+      }
+      return res.json({ url: blob.url, thumbUrl });
+    }
+    await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), mainBuffer);
+    let thumbUrl = '';
+    if (thumbBuffer) {
+      const thumbName = `${id}-thumb.webp`;
+      await fs.promises.writeFile(path.join(UPLOAD_DIR, thumbName), thumbBuffer);
+      thumbUrl = `/uploads/${thumbName}`;
+    }
+    res.json({ url: `/uploads/${filename}`, thumbUrl });
   } catch (e) {
     console.error('upload:', e);
     res.status(500).json({ error: 'Upload mislukt: ' + e.message });
@@ -379,25 +414,116 @@ app.post('/api/admin/upload', auth, upload.single('file'), async (req, res) => {
 app.post('/api/admin/upload-profile', auth, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Geen bestand' });
   try {
+    let buffer = req.file.buffer;
+    let ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+    let contentType = req.file.mimetype || 'image/jpeg';
+    try {
+      buffer = await sharp(req.file.buffer, { failOn: 'none' }).rotate()
+        .resize({ width: 1000, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
+      ext = '.webp';
+      contentType = 'image/webp';
+    } catch (e) {
+      console.error('profile image processing failed, uploading original:', e.message);
+    }
+
+    const [existing] = await sql`SELECT value FROM settings WHERE key='profile_photo_url'`;
+
     let url;
     if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
-      const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
-      const blob = await put(`profile${ext}`, req.file.buffer, {
+      const blob = await put(`profile${ext}`, buffer, {
         access: 'public',
-        contentType: req.file.mimetype || 'image/jpeg',
+        contentType,
         addRandomSuffix: false,
       });
       url = blob.url;
     } else {
-      const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
-      await fs.promises.writeFile(path.join(UPLOAD_DIR, `profile${ext}`), req.file.buffer);
+      await fs.promises.writeFile(path.join(UPLOAD_DIR, `profile${ext}`), buffer);
       url = `/uploads/profile${ext}`;
     }
+    if (existing?.value && existing.value !== url) await deleteFile({ url: existing.value });
     await sql`INSERT INTO settings (key,value) VALUES ('profile_photo_url',${url}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`;
     res.json({ url });
   } catch (e) {
     console.error('profile upload:', e);
     res.status(500).json({ error: 'Upload mislukt: ' + e.message });
+  }
+});
+
+// ─── Admin: bestaande foto's optimaliseren (eenmalige opschoning van oude, ────
+// ongecomprimeerde uploads in Blob storage). Verwerkt telkens een klein batchje
+// (i.v.m. de 30s functie-timeout) — de admin-UI roept dit herhaaldelijk aan tot
+// "remaining" 0 is.
+app.post('/api/admin/optimize-storage', auth, async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 6, 20);
+  try {
+    const [legacyPhotos, legacyPrivate] = await Promise.all([
+      sql`SELECT id,url FROM photos WHERE thumb_url='' OR thumb_url IS NULL LIMIT ${limit}`,
+      sql`SELECT id,url FROM private_photos WHERE thumb_url='' OR thumb_url IS NULL LIMIT ${limit}`,
+    ]);
+
+    let processed = 0, failed = 0, bytesBefore = 0, bytesAfter = 0;
+
+    async function migrateOne(table, row) {
+      try {
+        const resp = await fetch(row.url);
+        if (!resp.ok) throw new Error('download mislukt: ' + resp.status);
+        const original = Buffer.from(await resp.arrayBuffer());
+        const { mainBuffer, thumbBuffer } = await processImage(original);
+
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        let newUrl, newThumbUrl;
+        if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
+          const [mainBlob, thumbBlob] = await Promise.all([
+            put(`${id}.webp`, mainBuffer, { access: 'public', contentType: 'image/webp' }),
+            put(`${id}-thumb.webp`, thumbBuffer, { access: 'public', contentType: 'image/webp' }),
+          ]);
+          newUrl = mainBlob.url; newThumbUrl = thumbBlob.url;
+        } else {
+          await fs.promises.writeFile(path.join(UPLOAD_DIR, `${id}.webp`), mainBuffer);
+          await fs.promises.writeFile(path.join(UPLOAD_DIR, `${id}-thumb.webp`), thumbBuffer);
+          newUrl = `/uploads/${id}.webp`; newThumbUrl = `/uploads/${id}-thumb.webp`;
+        }
+
+        if (table === 'photos') {
+          await sql`UPDATE photos SET url=${newUrl}, thumb_url=${newThumbUrl}, filename=${newUrl} WHERE id=${row.id}`;
+        } else {
+          await sql`UPDATE private_photos SET url=${newUrl}, thumb_url=${newThumbUrl}, filename=${newUrl} WHERE id=${row.id}`;
+        }
+        await deleteFile({ url: row.url });
+
+        bytesBefore += original.length;
+        bytesAfter += mainBuffer.length + thumbBuffer.length;
+        processed++;
+      } catch (e) {
+        console.error('optimize-storage item mislukt:', table, row.id, e.message);
+        failed++;
+        // Voorkom een oneindige lus: markeer als "verwerkt" zonder te comprimeren.
+        try {
+          if (table === 'photos') await sql`UPDATE photos SET thumb_url=url WHERE id=${row.id}`;
+          else await sql`UPDATE private_photos SET thumb_url=url WHERE id=${row.id}`;
+        } catch {}
+      }
+    }
+
+    await Promise.all([
+      ...legacyPhotos.map(p => migrateOne('photos', p)),
+      ...legacyPrivate.map(p => migrateOne('private_photos', p)),
+    ]);
+
+    const [[{ remaining_photos }], [{ remaining_private }]] = await Promise.all([
+      sql`SELECT COUNT(*)::int AS remaining_photos FROM photos WHERE thumb_url='' OR thumb_url IS NULL`,
+      sql`SELECT COUNT(*)::int AS remaining_private FROM private_photos WHERE thumb_url='' OR thumb_url IS NULL`,
+    ]);
+
+    res.json({
+      processed, failed,
+      remaining: remaining_photos + remaining_private,
+      bytesBefore, bytesAfter,
+      savedBytes: bytesBefore - bytesAfter,
+    });
+  } catch (e) {
+    console.error('optimize-storage:', e);
+    res.status(500).json({ error: e.message || 'Optimalisatie mislukt' });
   }
 });
 
@@ -418,8 +544,10 @@ app.post('/api/admin/photos', auth, async (req, res) => {
     const [{ max_order }] = category_id
       ? await sql`SELECT COALESCE(MAX(sort_order),0)::int AS max_order FROM photos WHERE category_id=${category_id}`
       : await sql`SELECT COALESCE(MAX(sort_order),0)::int AS max_order FROM photos`;
-    const inserted = await Promise.all(urls.map(async (url, i) => {
-      const [row] = await sql`INSERT INTO photos (category_id,filename,url,sort_order) VALUES (${category_id||null},${url},${url},${max_order+i+1}) RETURNING id,filename,url`;
+    const inserted = await Promise.all(urls.map(async (item, i) => {
+      const url = typeof item === 'string' ? item : item.url;
+      const thumbUrl = typeof item === 'string' ? '' : (item.thumbUrl || '');
+      const [row] = await sql`INSERT INTO photos (category_id,filename,url,thumb_url,sort_order) VALUES (${category_id||null},${url},${url},${thumbUrl},${max_order+i+1}) RETURNING id,filename,url,thumb_url`;
       return row;
     }));
     res.json(inserted);
@@ -545,8 +673,10 @@ app.post('/api/admin/private-photos', auth, async (req, res) => {
   if (!urls?.length) return res.status(400).json({ error: 'Geen URLs' });
   try {
     const [{ max_order }] = await sql`SELECT COALESCE(MAX(sort_order),0)::int AS max_order FROM private_photos WHERE gallery_id=${gallery_id}`;
-    const inserted = await Promise.all(urls.map(async (url, i) => {
-      const [row] = await sql`INSERT INTO private_photos (gallery_id,filename,url,sort_order) VALUES (${gallery_id},${url},${url},${max_order+i+1}) RETURNING id,filename,url`;
+    const inserted = await Promise.all(urls.map(async (item, i) => {
+      const url = typeof item === 'string' ? item : item.url;
+      const thumbUrl = typeof item === 'string' ? '' : (item.thumbUrl || '');
+      const [row] = await sql`INSERT INTO private_photos (gallery_id,filename,url,thumb_url,sort_order) VALUES (${gallery_id},${url},${url},${thumbUrl},${max_order+i+1}) RETURNING id,filename,url,thumb_url`;
       return row;
     }));
     res.json(inserted);

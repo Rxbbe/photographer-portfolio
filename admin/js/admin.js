@@ -71,7 +71,7 @@ async function uploadFile(file) {
   });
   const data = await res.json();
   if (!res.ok || data?.error) throw new Error(data?.error || 'Upload mislukt');
-  return data.url;
+  return { url: data.url, thumbUrl: data.thumbUrl || '' };
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -289,7 +289,7 @@ async function refreshPhotosPage() {
 
   grid.innerHTML = photos.map(p => `
     <div class="photo-thumb" data-id="${p.id}">
-      <img src="${p.url || '/uploads/' + p.filename}" alt="${p.title || ''}">
+      <img src="${p.thumb_url || p.url || '/uploads/' + p.filename}" alt="${p.title || ''}">
       ${cat?.cover_photo_id === p.id ? '<span class="photo-cover-badge">Cover</span>' : ''}
       <div class="photo-thumb-actions">
         <button class="btn-cover" data-id="${p.id}">Als cover</button>
@@ -433,6 +433,8 @@ async function initSettingsPage() {
     toast('Instellingen opgeslagen');
   });
 
+  bindStorageOptimize();
+
   // Profile photo upload
   const profileZone = document.getElementById('profile-upload-zone');
   const profileInput = document.getElementById('profile-input');
@@ -463,6 +465,44 @@ async function initSettingsPage() {
       toast('Upload mislukt: ' + err.message, true);
     }
     profileInput.value = '';
+  });
+}
+
+// ── Opslag optimaliseren (bestaande, ongecomprimeerde foto's) ──────────────────
+function bindStorageOptimize() {
+  const btn = document.getElementById('optimize-storage-btn');
+  if (!btn || btn.dataset.bound) return;
+  btn.dataset.bound = '1';
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Bezig...';
+    const progressEl = document.getElementById('optimize-storage-progress');
+    let totalProcessed = 0, totalFailed = 0, savedBytes = 0;
+
+    try {
+      while (true) {
+        const result = await api('POST', '/api/admin/optimize-storage?limit=4');
+        if (!result || result.error) throw new Error(result?.error || 'Optimalisatie mislukt');
+
+        totalProcessed += result.processed;
+        totalFailed += result.failed;
+        savedBytes += result.savedBytes || 0;
+        progressEl.textContent =
+          `${totalProcessed} foto${totalProcessed !== 1 ? "'s" : ''} geoptimaliseerd, nog ${result.remaining} te gaan... ` +
+          `(${(savedBytes / 1024 / 1024).toFixed(1)} MB bespaard tot nu toe)`;
+
+        if (result.remaining === 0) break;
+        if (result.processed === 0 && result.failed === 0) break; // veiligheid tegen oneindige lus
+      }
+      progressEl.innerHTML = `<strong style="color:#16a34a">Klaar!</strong> ${totalProcessed} foto${totalProcessed !== 1 ? "'s" : ''} geoptimaliseerd, ` +
+        `${(savedBytes / 1024 / 1024).toFixed(1)} MB bespaard.` +
+        (totalFailed ? ` (${totalFailed} foto${totalFailed !== 1 ? "'s" : ''} overgeslagen)` : '');
+    } catch (err) {
+      progressEl.innerHTML = `<span style="color:#dc2626">Fout: ${err.message}</span>`;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Start optimalisatie';
   });
 }
 
@@ -664,7 +704,7 @@ async function loadEvents() {
 function photoThumbHtml(p, coverPhotoId, eventId) {
   return `
     <div class="photo-thumb" data-id="${p.id}">
-      <img src="${p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
+      <img src="${p.thumb_url || p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
       ${coverPhotoId === p.id ? '<span class="photo-cover-badge">Cover</span>' : ''}
       <div class="photo-thumb-actions">
         <button class="btn-cover-ev" data-id="${p.id}" data-event="${eventId}">Als cover</button>
@@ -681,7 +721,7 @@ function subcatSectionHtml(sc, photos, eventId) {
   const photoHtml = photos?.length
     ? photos.map(p => `
         <div class="photo-thumb" data-id="${p.id}">
-          <img src="${p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
+          <img src="${p.thumb_url || p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
           <div class="photo-thumb-actions">
             <button class="btn-cover-ev" data-id="${p.id}" data-event="${eventId}">Als cover</button>
             <button class="btn-del-ev-photo" data-id="${p.id}" data-event="${eventId}">Verwijderen</button>
@@ -905,9 +945,10 @@ function initSubcatModal() {
         const bar = document.getElementById('subcat-bar');
         if (bar) bar.style.width = Math.round(done / total * 100) + '%';
       });
-      document.getElementById('subcat-banner-url').value = urls[0];
+      const bannerUrl = urls[0].url;
+      document.getElementById('subcat-banner-url').value = bannerUrl;
       const previewDiv = document.getElementById('subcat-banner-preview-div');
-      previewDiv.style.backgroundImage = `url('${urls[0]}')`;
+      previewDiv.style.backgroundImage = `url('${bannerUrl}')`;
       previewDiv.style.backgroundPositionY = posSlider.value + '%';
       document.getElementById('subcat-banner-preview-name').textContent =
         document.querySelector('#subcat-form [name=name]').value || '';
