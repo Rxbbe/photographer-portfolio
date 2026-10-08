@@ -28,7 +28,7 @@
 <div class="app" id="app">
 
   <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       Admin Panel
       <small>Fotoportfolio</small>
@@ -71,14 +71,19 @@
       </button>
     </div>
   </aside>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
   <!-- Main -->
   <div class="main">
     <div class="topbar">
+      <button class="menu-btn" id="menu-btn" aria-label="Menu openen" aria-controls="sidebar" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        <span class="menu-badge" id="menu-badge" style="display:none"></span>
+      </button>
       <h2 id="page-title">Dashboard</h2>
       <a href="/" target="_blank" class="btn btn-outline btn-sm">
         <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
-        Website bekijken
+        <span class="hide-mobile">Website bekijken</span>
       </a>
     </div>
 
@@ -88,7 +93,7 @@
       <div class="card">
         <h3 style="font-size:.9rem;font-weight:600;margin-bottom:1rem">Snelle upload</h3>
         <p style="color:#666;font-size:.85rem;margin-bottom:1rem">Selecteer eerst een categorie, dan kan je foto's slepen of selecteren.</p>
-        <div class="form-group" style="max-width:300px">
+        <div class="form-group" style="max-width:300px;width:100%">
           <label>Categorie</label>
           <select id="quick-cat-select"></select>
         </div>
@@ -131,7 +136,7 @@
     <!-- Settings -->
     <div class="page-content" id="page-settings">
       <form id="settings-form">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+        <div class="settings-grid">
           <div class="card">
             <h3 style="font-size:.9rem;font-weight:600;margin-bottom:1.2rem">Algemeen</h3>
             <div class="form-group">

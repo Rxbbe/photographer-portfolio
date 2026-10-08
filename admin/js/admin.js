@@ -129,8 +129,24 @@ async function showApp() {
 // ── Navigation ────────────────────────────────────────────────────────────────
 function initNav() {
   document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
-    btn.addEventListener('click', () => switchPage(btn.dataset.page));
+    btn.addEventListener('click', () => { switchPage(btn.dataset.page); toggleSidebar(false); });
   });
+  document.getElementById('menu-btn').addEventListener('click', () => toggleSidebar(true));
+  document.getElementById('sidebar-backdrop').addEventListener('click', () => toggleSidebar(false));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleSidebar(false); });
+}
+
+// Zijbalk als uitschuifmenu op kleine schermen
+function toggleSidebar(open) {
+  document.getElementById('app').classList.toggle('sidebar-open', open);
+  document.getElementById('menu-btn').setAttribute('aria-expanded', open);
+}
+
+function setUnreadBadge(unread) {
+  const badge = document.getElementById('msg-badge');
+  badge.textContent = unread;
+  badge.style.display = unread > 0 ? '' : 'none';
+  document.getElementById('menu-badge').style.display = unread > 0 ? '' : 'none';
 }
 
 function switchPage(page) {
@@ -172,11 +188,7 @@ async function loadDashboard() {
     <div class="stat-card"><div class="stat-val">${unread}</div><div class="stat-label">Ongelezen</div></div>
   `;
 
-  if (unread > 0) {
-    const badge = document.getElementById('msg-badge');
-    badge.textContent = unread;
-    badge.style.display = '';
-  }
+  if (unread > 0) setUnreadBadge(unread);
 
   // Quick upload: alleen top-niveau blad-categorieën (geen evenementen, geen ouders)
   const uploadableCats = (cats || []).filter(c => !c.has_children && !c.parent_id);
@@ -517,13 +529,7 @@ async function loadMessages() {
   }
 
   const unread = msgs.filter(m => !m.read).length;
-  const badge = document.getElementById('msg-badge');
-  if (unread > 0) {
-    badge.textContent = unread;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
+  setUnreadBadge(unread);
 
   list.innerHTML = msgs.map(m => `
     <div class="message-card ${!m.read ? 'unread' : ''}" data-id="${m.id}">
