@@ -299,7 +299,7 @@
           item.className = 'gallery-item';
           item.dataset.index = i;
           const img = document.createElement('img');
-          img.src = p.url; img.alt = ''; img.loading = i < 8 ? 'eager' : 'lazy'; img.decoding = 'async';
+          img.src = p.thumb_url || p.url; img.alt = ''; img.loading = i < 8 ? 'eager' : 'lazy'; img.decoding = 'async';
           const overlay = document.createElement('div');
           overlay.className = 'gallery-item-overlay';
           overlay.innerHTML = OVERLAY;
@@ -333,6 +333,7 @@
       document.getElementById('lb-counter').textContent = `${lbIndex + 1} / ${photos.length}`;
       document.getElementById('lb-download').href = p.url;
       img.style.animation = 'none'; img.offsetHeight; img.style.animation = '';
+      for (const d of [1, -1]) new Image().src = photos[(lbIndex + d + photos.length) % photos.length].url;
     }
     function initLightbox() {
       document.getElementById('lb-close').addEventListener('click', closeLightbox);

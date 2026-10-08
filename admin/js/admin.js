@@ -53,10 +53,10 @@ async function directUpload(files, onProgress) {
   let done = 0;
   const urls = await withConcurrency(Array.from(files), 4, async (file) => {
     const resized = await resizeImage(file);
-    const url = await uploadFile(resized);
+    const uploaded = await uploadFile(resized);
     done++;
     if (onProgress) onProgress(done, files.length);
-    return url;
+    return uploaded;
   });
   return urls;
 }
@@ -71,7 +71,7 @@ async function uploadFile(file) {
   });
   const data = await res.json();
   if (!res.ok || data?.error) throw new Error(data?.error || 'Upload mislukt');
-  return data.url;
+  return { url: data.url, thumb_url: data.thumb_url || '' };
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -124,6 +124,22 @@ async function showApp() {
   initEventsPage();
   initPrivatePage();
   await loadMessages();
+  backfillThumbnails();
+}
+
+// Bestaande foto's zonder thumbnail op de achtergrond bijwerken (stopt vanzelf als alles klaar is)
+async function backfillThumbnails() {
+  let total = 0;
+  try {
+    while (true) {
+      const { processed, remaining } = await api('POST', '/api/admin/thumbnails/backfill');
+      total += processed;
+      if (!remaining || !processed) break;
+    }
+    if (total) toast(`Thumbnails aangemaakt voor ${total} foto's`);
+  } catch (e) {
+    console.error('Thumbnails aanmaken mislukt:', e);
+  }
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -289,7 +305,7 @@ async function refreshPhotosPage() {
 
   grid.innerHTML = photos.map(p => `
     <div class="photo-thumb" data-id="${p.id}">
-      <img src="${p.url || '/uploads/' + p.filename}" alt="${p.title || ''}">
+      <img src="${p.thumb_url || p.url || '/uploads/' + p.filename}" alt="${p.title || ''}">
       ${cat?.cover_photo_id === p.id ? '<span class="photo-cover-badge">Cover</span>' : ''}
       <div class="photo-thumb-actions">
         <button class="btn-cover" data-id="${p.id}">Als cover</button>
@@ -561,7 +577,7 @@ async function loadEvents() {
       <div class="private-gallery-header" data-id="${ev.id}">
         <div class="private-gallery-icon" style="background:var(--light)">
           ${ev.cover_url
-            ? `<img src="${ev.cover_url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" alt="">`
+            ? `<img src="${ev.cover_thumb_url || ev.cover_url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" alt="">`
             : `<svg viewBox="0 0 24 24" style="fill:var(--gray)"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>`}
         </div>
         <div class="private-gallery-info">
@@ -664,7 +680,7 @@ async function loadEvents() {
 function photoThumbHtml(p, coverPhotoId, eventId) {
   return `
     <div class="photo-thumb" data-id="${p.id}">
-      <img src="${p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
+      <img src="${p.thumb_url || p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
       ${coverPhotoId === p.id ? '<span class="photo-cover-badge">Cover</span>' : ''}
       <div class="photo-thumb-actions">
         <button class="btn-cover-ev" data-id="${p.id}" data-event="${eventId}">Als cover</button>
@@ -681,7 +697,7 @@ function subcatSectionHtml(sc, photos, eventId) {
   const photoHtml = photos?.length
     ? photos.map(p => `
         <div class="photo-thumb" data-id="${p.id}">
-          <img src="${p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
+          <img src="${p.thumb_url || p.url || '/uploads/' + p.filename}" alt="${escHtml(p.title || '')}" loading="lazy">
           <div class="photo-thumb-actions">
             <button class="btn-cover-ev" data-id="${p.id}" data-event="${eventId}">Als cover</button>
             <button class="btn-del-ev-photo" data-id="${p.id}" data-event="${eventId}">Verwijderen</button>
@@ -905,9 +921,9 @@ function initSubcatModal() {
         const bar = document.getElementById('subcat-bar');
         if (bar) bar.style.width = Math.round(done / total * 100) + '%';
       });
-      document.getElementById('subcat-banner-url').value = urls[0];
+      document.getElementById('subcat-banner-url').value = urls[0].url;
       const previewDiv = document.getElementById('subcat-banner-preview-div');
-      previewDiv.style.backgroundImage = `url('${urls[0]}')`;
+      previewDiv.style.backgroundImage = `url('${urls[0].url}')`;
       previewDiv.style.backgroundPositionY = posSlider.value + '%';
       document.getElementById('subcat-banner-preview-name').textContent =
         document.querySelector('#subcat-form [name=name]').value || '';
@@ -1211,7 +1227,7 @@ async function loadPrivatePhotos(galleryId) {
 
   grid.innerHTML = photos.map(p => `
     <div class="photo-thumb" data-id="${p.id}">
-      <img src="${p.url || p.filename}" alt="" loading="lazy">
+      <img src="${p.thumb_url || p.url || p.filename}" alt="" loading="lazy">
       <div class="photo-thumb-actions">
         <button class="btn-del-pp" data-id="${p.id}">Verwijderen</button>
       </div>

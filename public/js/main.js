@@ -92,10 +92,10 @@ async function initHome() {
     return;
   }
 
-  const catCard = c => `
+  const catCard = (c, large = false) => `
     <a href="/gallery.html?slug=${c.slug}" class="cat-card">
       ${c.cover_url
-        ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
+        ? `<img src="${large ? c.cover_url : (c.cover_thumb_url || c.cover_url)}" alt="${c.name}" loading="lazy" decoding="async">`
         : `<div class="cat-placeholder">Geen foto's</div>`}
       <div class="cat-card-overlay">
         <div class="cat-card-name">${c.name}</div>
@@ -109,7 +109,7 @@ async function initHome() {
 
   grid.className = 'home-layout';
   grid.innerHTML =
-    (events ? `<div class="events-spotlight">${catCard(events)}</div>` : '') +
+    (events ? `<div class="events-spotlight">${catCard(events, true)}</div>` : '') +
     (others.length ? `<div class="categories-grid">${others.map(catCard).join('')}</div>` : '');
 }
 
@@ -150,7 +150,7 @@ async function initGallery() {
       const catCard = c => `
         <a href="/gallery.html?slug=${c.slug}" class="cat-card">
           ${c.cover_url
-            ? `<img src="${c.cover_url}" alt="${c.name}" loading="lazy">`
+            ? `<img src="${c.cover_thumb_url || c.cover_url}" alt="${c.name}" loading="lazy" decoding="async">`
             : `<div class="cat-placeholder">Geen foto's</div>`}
           <div class="cat-card-overlay">
             <div class="cat-card-name">${c.name}</div>
@@ -214,7 +214,7 @@ function renderGalleryGrid(grid, photos, onOpen) {
       item.dataset.index = i;
 
       const img = document.createElement('img');
-      img.src = p.url;
+      img.src = p.thumb_url || p.url;
       img.alt = p.title || '';
       img.loading = i < 8 ? 'eager' : 'lazy';
       img.decoding = 'async';
@@ -287,6 +287,12 @@ function renderLightbox() {
   img.alt = photo.title || '';
   if (caption) caption.textContent = photo.title || '';
   if (counter) counter.textContent = `${lightboxIndex + 1} / ${galleryPhotos.length}`;
+
+  // Volgende en vorige foto alvast inladen zodat bladeren direct gaat
+  for (const d of [1, -1]) {
+    const next = galleryPhotos[(lightboxIndex + d + galleryPhotos.length) % galleryPhotos.length];
+    if (next) new Image().src = next.url;
+  }
 
   // Animate
   img.style.animation = 'none';

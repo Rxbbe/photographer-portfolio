@@ -61,14 +61,47 @@ if (!IS_VERCEL && !fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursi
 
 // ─── File delete ───────────────────────────────────────────────────────────────
 async function deleteFile(photo) {
-  try {
-    const url = photo.url || '';
-    if (url.startsWith('https://') && (url.includes('vercel-blob') || url.includes('public.blob.vercel'))) {
-      await del(url);
+  for (const url of new Set([photo.url, photo.thumb_url])) {
+    try {
+      if (url?.startsWith('https://') && (url.includes('vercel-blob') || url.includes('public.blob.vercel'))) {
+        await del(url);
+      }
+    } catch (e) {
+      console.error('deleteFile:', e.message);
     }
-  } catch (e) {
-    console.error('deleteFile:', e.message);
   }
+}
+
+// ─── File storage + thumbnails ─────────────────────────────────────────────────
+async function storeFile(filename, buffer, contentType) {
+  if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(filename, buffer, { access: 'public', contentType });
+    return blob.url;
+  }
+  await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  return `/uploads/${filename}`;
+}
+
+// Kleine WebP-versie voor grids en kaartjes; het origineel blijft voor de lightbox.
+// Korte zijde 900px = scherp in een kolom van ~450px op retina-schermen.
+function makeThumbnail(buffer) {
+  return sharp(buffer)
+    .rotate()
+    .resize({ width: 900, height: 900, fit: 'outside', withoutEnlargement: true })
+    .webp({ quality: 72 })
+    .toBuffer();
+}
+
+async function storeThumbnail(filename, buffer) {
+  const thumb = await makeThumbnail(buffer);
+  return storeFile(`thumb-${filename.replace(/\.[^.]+$/, '')}.webp`, thumb, 'image/webp');
+}
+
+async function readSource(url) {
+  if (url.startsWith('/uploads/')) return fs.promises.readFile(path.join(UPLOAD_DIR, path.basename(url)));
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
 }
 
 // ─── DB init ───────────────────────────────────────────────────────────────────
@@ -90,6 +123,7 @@ async function initDB() {
     title TEXT DEFAULT '', description TEXT DEFAULT '',
     sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE photos ADD COLUMN IF NOT EXISTS thumb_url TEXT DEFAULT ''`;
 
   await sql`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')`;
 
@@ -109,6 +143,7 @@ async function initDB() {
     filename TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '',
     sort_order INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE private_photos ADD COLUMN IF NOT EXISTS thumb_url TEXT DEFAULT ''`;
 
   for (const [k, v] of [
     ['site_name',       'Arnoud Bex'],
@@ -187,6 +222,11 @@ app.get('/api/categories', async (req, res) => {
           (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
           (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
         ) AS cover_url,
+        COALESCE(
+          NULLIF(cp.thumb_url, ''), cp.url,
+          (SELECT COALESCE(NULLIF(thumb_url, ''), url) FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+          (SELECT COALESCE(NULLIF(thumb_url, ''), url) FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+        ) AS cover_thumb_url,
         (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
         (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
       FROM categories c
@@ -219,6 +259,11 @@ app.get('/api/categories/:slug/subcategories', async (req, res) => {
           (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
           (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
         ) AS cover_url,
+        COALESCE(
+          NULLIF(cp.thumb_url, ''), cp.url,
+          (SELECT COALESCE(NULLIF(thumb_url, ''), url) FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+          (SELECT COALESCE(NULLIF(thumb_url, ''), url) FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+        ) AS cover_thumb_url,
         (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
         (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
       FROM categories c LEFT JOIN photos cp ON c.cover_photo_id = cp.id
@@ -252,6 +297,11 @@ app.get('/api/gallery/:slug', async (req, res) => {
             (SELECT url FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
             (SELECT url FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
           ) AS cover_url,
+          COALESCE(
+            NULLIF(cp.thumb_url, ''), cp.url,
+            (SELECT COALESCE(NULLIF(thumb_url, ''), url) FROM photos WHERE category_id = c.id ORDER BY sort_order, created_at LIMIT 1),
+            (SELECT COALESCE(NULLIF(thumb_url, ''), url) FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id) ORDER BY sort_order, created_at LIMIT 1)
+          ) AS cover_thumb_url,
           (SELECT COUNT(*)::int FROM photos WHERE category_id = c.id) +
           (SELECT COUNT(*)::int FROM photos WHERE category_id IN (SELECT id FROM categories WHERE parent_id = c.id)) AS photo_count
         FROM categories c LEFT JOIN photos cp ON c.cover_photo_id = cp.id
@@ -300,9 +350,10 @@ app.get('/api/admin/categories', auth, async (req, res) => {
       res.json(await sql`
         SELECT c.*,
           COALESCE(cp.url,(SELECT url FROM photos WHERE category_id=c.id ORDER BY sort_order,created_at LIMIT 1)) AS cover_url,
+          COALESCE(NULLIF(cp.thumb_url,''),cp.url,(SELECT COALESCE(NULLIF(thumb_url,''),url) FROM photos WHERE category_id=c.id ORDER BY sort_order,created_at LIMIT 1)) AS cover_thumb_url,
           COUNT(p.id)::int AS photo_count
         FROM categories c LEFT JOIN photos cp ON c.cover_photo_id=cp.id LEFT JOIN photos p ON p.category_id=c.id
-        WHERE c.parent_id=${parent_id} GROUP BY c.id,cp.url ORDER BY c.sort_order,c.name`);
+        WHERE c.parent_id=${parent_id} GROUP BY c.id,cp.url,cp.thumb_url ORDER BY c.sort_order,c.name`);
     } else {
       res.json(await sql`
         SELECT c.*, COUNT(p.id)::int AS photo_count,
@@ -360,15 +411,11 @@ app.post('/api/admin/upload', auth, upload.single('file'), async (req, res) => {
   try {
     const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    if (IS_VERCEL || process.env.BLOB_READ_WRITE_TOKEN) {
-      const blob = await put(filename, req.file.buffer, {
-        access: 'public',
-        contentType: req.file.mimetype || 'image/jpeg',
-      });
-      return res.json({ url: blob.url });
-    }
-    await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), req.file.buffer);
-    res.json({ url: `/uploads/${filename}` });
+    const [url, thumb_url] = await Promise.all([
+      storeFile(filename, req.file.buffer, req.file.mimetype || 'image/jpeg'),
+      storeThumbnail(filename, req.file.buffer).catch(e => { console.error('thumbnail:', e.message); return ''; }),
+    ]);
+    res.json({ url, thumb_url });
   } catch (e) {
     console.error('upload:', e);
     res.status(500).json({ error: 'Upload mislukt: ' + e.message });
@@ -418,8 +465,9 @@ app.post('/api/admin/photos', auth, async (req, res) => {
     const [{ max_order }] = category_id
       ? await sql`SELECT COALESCE(MAX(sort_order),0)::int AS max_order FROM photos WHERE category_id=${category_id}`
       : await sql`SELECT COALESCE(MAX(sort_order),0)::int AS max_order FROM photos`;
-    const inserted = await Promise.all(urls.map(async (url, i) => {
-      const [row] = await sql`INSERT INTO photos (category_id,filename,url,sort_order) VALUES (${category_id||null},${url},${url},${max_order+i+1}) RETURNING id,filename,url`;
+    const inserted = await Promise.all(urls.map(async (item, i) => {
+      const { url, thumb_url } = typeof item === 'string' ? { url: item } : item;
+      const [row] = await sql`INSERT INTO photos (category_id,filename,url,thumb_url,sort_order) VALUES (${category_id||null},${url},${url},${thumb_url||''},${max_order+i+1}) RETURNING id,filename,url,thumb_url`;
       return row;
     }));
     res.json(inserted);
@@ -450,6 +498,36 @@ app.post('/api/admin/photos/reorder', auth, async (req, res) => {
     await Promise.all(req.body.photo_ids.map((id, i) => sql`UPDATE photos SET sort_order=${i+1} WHERE id=${id}`));
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: 'DB fout' }); }
+});
+
+// Maakt thumbnails aan voor foto's van vóór de thumbnail-functie.
+// Werkt in porties binnen de functie-timeout; de admin roept dit herhaald aan tot remaining 0 is.
+app.post('/api/admin/thumbnails/backfill', auth, async (req, res) => {
+  const deadline = Date.now() + 18000;
+  let processed = 0;
+  try {
+    for (const table of ['photos', 'private_photos']) {
+      while (Date.now() < deadline) {
+        const rows = await sql`SELECT id,url FROM ${sql(table)} WHERE COALESCE(thumb_url,'')='' AND url<>'' ORDER BY id LIMIT 4`;
+        if (!rows.length) break;
+        await Promise.all(rows.map(async ({ id, url }) => {
+          let thumbUrl = url; // bij falen het origineel gebruiken, zodat we niet blijven herproberen
+          try {
+            thumbUrl = await storeThumbnail(path.basename(new URL(url, 'http://localhost').pathname), await readSource(url));
+          } catch (e) { console.error(`backfill ${table} ${id}:`, e.message); }
+          await sql`UPDATE ${sql(table)} SET thumb_url=${thumbUrl} WHERE id=${id}`;
+          processed++;
+        }));
+      }
+    }
+    const [{ remaining }] = await sql`SELECT
+      (SELECT COUNT(*) FROM photos WHERE COALESCE(thumb_url,'')='' AND url<>'')::int +
+      (SELECT COUNT(*) FROM private_photos WHERE COALESCE(thumb_url,'')='' AND url<>'')::int AS remaining`;
+    res.json({ processed, remaining });
+  } catch (e) {
+    console.error('backfill:', e);
+    res.status(500).json({ error: 'Thumbnails aanmaken mislukt' });
+  }
 });
 
 // ─── Admin: settings ───────────────────────────────────────────────────────────
@@ -508,7 +586,7 @@ app.put('/api/admin/private-galleries/:id', auth, async (req, res) => {
 
 app.delete('/api/admin/private-galleries/:id', auth, async (req, res) => {
   try {
-    const photos = await sql`SELECT filename,url FROM private_photos WHERE gallery_id=${req.params.id}`;
+    const photos = await sql`SELECT filename,url,thumb_url FROM private_photos WHERE gallery_id=${req.params.id}`;
     await Promise.all(photos.map(deleteFile));
     await sql`DELETE FROM private_photos WHERE gallery_id=${req.params.id}`;
     await sql`DELETE FROM private_galleries WHERE id=${req.params.id}`;
@@ -545,8 +623,9 @@ app.post('/api/admin/private-photos', auth, async (req, res) => {
   if (!urls?.length) return res.status(400).json({ error: 'Geen URLs' });
   try {
     const [{ max_order }] = await sql`SELECT COALESCE(MAX(sort_order),0)::int AS max_order FROM private_photos WHERE gallery_id=${gallery_id}`;
-    const inserted = await Promise.all(urls.map(async (url, i) => {
-      const [row] = await sql`INSERT INTO private_photos (gallery_id,filename,url,sort_order) VALUES (${gallery_id},${url},${url},${max_order+i+1}) RETURNING id,filename,url`;
+    const inserted = await Promise.all(urls.map(async (item, i) => {
+      const { url, thumb_url } = typeof item === 'string' ? { url: item } : item;
+      const [row] = await sql`INSERT INTO private_photos (gallery_id,filename,url,thumb_url,sort_order) VALUES (${gallery_id},${url},${url},${thumb_url||''},${max_order+i+1}) RETURNING id,filename,url,thumb_url`;
       return row;
     }));
     res.json(inserted);
