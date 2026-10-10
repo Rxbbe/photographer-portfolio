@@ -177,7 +177,7 @@ body::after {
 .back-link svg { width: 14px; height: 14px; }
 
 .gallery-grid {
-  padding: 3rem 1.5rem; max-width: 1400px; margin: 0 auto;
+  padding: 3rem 1.5rem; width: 100%;
   columns: 3; column-gap: 12px;
 }
 .gallery-item {
@@ -391,4 +391,13 @@ body::after {
 
 @media (max-width: 480px) {
   .gallery-grid { columns: 1; }
+}
+
+/* Grid vult nu het hele scherm (geen max-width meer) — op brede pc-schermen
+   extra kolommen zodat de foto's niet te groot/uitgerekt worden. */
+@media (min-width: 1600px) {
+  .gallery-grid { columns: 4; }
+}
+@media (min-width: 2200px) {
+  .gallery-grid { columns: 5; }
 }
